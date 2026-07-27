@@ -715,6 +715,8 @@ function containerProto:OnShow()
 	self:ResumeUpdates()
 	containerParentProto.OnShow(self)
 	if self.isPersonalBank then
+		addon:DetectGuildBankKind()
+		self:UpdateGuildBankTitle()
 		self:UpdatePersonalBankTabs()
 	end
 end
@@ -869,6 +871,11 @@ local MAX_PERSONAL_BANK_TABS = 8
 local TAB_SIZE = 32
 local TAB_SPACING = 4
 
+function containerProto:UpdateGuildBankTitle()
+	if not self.isPersonalBank or not self.Title then return end
+	self.Title:SetText(addon:GetGuildBankKindTitle())
+end
+
 function containerProto:CreatePersonalBankTabBar()
 	local tabBar = CreateFrame("Frame", nil, self)
 	tabBar:SetWidth(TAB_SIZE + 4)
@@ -895,7 +902,7 @@ function containerProto:CreatePersonalBankTabBar()
 		end)
 		btn:SetScript('OnEnter', function(button)
 			GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
-			GameTooltip:SetText(button.tabName or L["PersonalBank"])
+			GameTooltip:SetText(button.tabName or addon:GetGuildBankKindTitle())
 			GameTooltip:Show()
 		end)
 		btn:SetScript('OnLeave', function()
@@ -947,15 +954,18 @@ end
 function containerProto:UpdatePersonalBankTabs()
 	if not self.isPersonalBank or not self.personalBankTabs then return end
 
+	self:UpdateGuildBankTitle()
+
 	local numTabs = GetNumGuildBankTabs and GetNumGuildBankTabs() or 0
 	local current = GetCurrentGuildBankTab and GetCurrentGuildBankTab() or 1
 	local lastVisible
+	local kindTitle = addon:GetGuildBankKindTitle()
 
 	for i = 1, MAX_PERSONAL_BANK_TABS do
 		local btn = self.personalBankTabs[i]
 		if i <= numTabs then
 			local name, icon, isViewable = GetGuildBankTabInfo(i)
-			btn.tabName = name or (L["PersonalBank"].." #"..i)
+			btn.tabName = name or (kindTitle.." #"..i)
 			if icon then
 				btn:SetNormalTexture(icon)
 			end
@@ -1162,7 +1172,7 @@ local function FilterByBag(slotData)
 	elseif bag == BANK_CONTAINER then
 		name = L['Bank']
 	elseif bag == PERSONAL_BANK_CONTAINER then
-		name = L['PersonalBank']
+		name = addon:GetGuildBankKindTitle()
 	elseif bag <= NUM_BAG_SLOTS then
 		name = format(L["Bag #%d"], bag)
 	else

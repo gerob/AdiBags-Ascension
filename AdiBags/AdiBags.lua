@@ -919,12 +919,70 @@ do
 end
 
 --------------------------------------------------------------------------------
--- Personal Bank (Ascension: GuildBankFrame via item 134985)
+-- Personal / Guild / Realm Bank (Ascension: shared GuildBankFrame APIs)
 --------------------------------------------------------------------------------
 
 do
-	-- L["PersonalBank"]
+	-- L["PersonalBank"] / L["GuildBank"] / L["RealmBank"]
+	-- Ascension reuses GuildBankFrame for personal, realm, and guild banks.
 	local personalBank = addon:NewBag("PersonalBank", 30, addon.BAG_IDS.PERSONAL_BANK, true, 'AceHook-3.0')
+
+	addon.GUILD_BANK_KIND_PERSONAL = "personal"
+	addon.GUILD_BANK_KIND_REALM = "realm"
+	addon.GUILD_BANK_KIND_GUILD = "guild"
+	addon.guildBankKind = addon.GUILD_BANK_KIND_PERSONAL
+
+	-- Same detection Ascension Bagnon/TSM use: JSON payload, else first tab name.
+	function addon:DetectGuildBankKind()
+		local detected
+
+		if HasJsonCacheData and GetJsonCacheData and C_Serialize and C_Serialize.FromJSON then
+			if HasJsonCacheData("BANK_PERMISSIONS_PAYLOAD", 0) then
+				local json = GetJsonCacheData("BANK_PERMISSIONS_PAYLOAD", 0)
+				if json then
+					local ok, data = pcall(C_Serialize.FromJSON, C_Serialize, json)
+					if ok and data then
+						if data.IsPersonalBank then
+							detected = self.GUILD_BANK_KIND_PERSONAL
+						elseif data.IsRealmBank then
+							detected = self.GUILD_BANK_KIND_REALM
+						else
+							detected = self.GUILD_BANK_KIND_GUILD
+						end
+					end
+				end
+			end
+		end
+
+		if not detected and GetNumGuildBankTabs and GetGuildBankTabInfo then
+			local numTabs = GetNumGuildBankTabs() or 0
+			if numTabs > 0 then
+				local firstTabName = GetGuildBankTabInfo(1)
+				if firstTabName == "Personal Bank" then
+					detected = self.GUILD_BANK_KIND_PERSONAL
+				elseif firstTabName == "Realm Bank" then
+					detected = self.GUILD_BANK_KIND_REALM
+				elseif firstTabName then
+					detected = self.GUILD_BANK_KIND_GUILD
+				end
+			end
+		end
+
+		if detected then
+			self.guildBankKind = detected
+		end
+		return self.guildBankKind
+	end
+
+	function addon:GetGuildBankKindTitle()
+		local kind = self.guildBankKind
+		if kind == self.GUILD_BANK_KIND_GUILD then
+			return L["GuildBank"]
+		elseif kind == self.GUILD_BANK_KIND_REALM then
+			return L["RealmBank"]
+		end
+		return L["PersonalBank"]
+	end
 
 	local function StashStockGuildBankFrame(frame)
 		-- Keep frame shown for the bank session, but invisible.
@@ -985,13 +1043,18 @@ do
 
 	function personalBank:OnGuildBankOpened()
 		self.sessionOpen = true
+		addon:DetectGuildBankKind()
 		self:HookGuildBankFrame()
 		self:Open()
+		if self.frame and self.frame.UpdateGuildBankTitle then
+			self.frame:UpdateGuildBankTitle()
+		end
 	end
 
 	function personalBank:OnGuildBankClosed()
 		if self.stashingGuildBank then return end
 		self.sessionOpen = false
+		addon.guildBankKind = addon.GUILD_BANK_KIND_PERSONAL
 		if self:IsOpen() and self.frame and self.frame:IsShown() then
 			self.closingGuildBank = true
 			self.frame:Hide()
@@ -1015,11 +1078,15 @@ do
 
 	function personalBank:OnGuildBankFrameShow(frame)
 		self.sessionOpen = true
+		addon:DetectGuildBankKind()
 		self.stashingGuildBank = true
 		self.hooks[frame].Show(frame)
 		StashStockGuildBankFrame(frame)
 		self.stashingGuildBank = false
 		self:Open()
+		if self.frame and self.frame.UpdateGuildBankTitle then
+			self.frame:UpdateGuildBankTitle()
+		end
 	end
 
 	function personalBank:OnGuildBankFrameHide(frame)
@@ -1073,8 +1140,16 @@ do
 	end
 
 	function personalBank:GuildBankTabsChanged()
-		if self:IsOpen() and self.frame and self.frame.UpdatePersonalBankTabs then
-			self.frame:UpdatePersonalBankTabs()
+		if self:IsOpen() then
+			addon:DetectGuildBankKind()
+			if self.frame then
+				if self.frame.UpdateGuildBankTitle then
+					self.frame:UpdateGuildBankTitle()
+				end
+				if self.frame.UpdatePersonalBankTabs then
+					self.frame:UpdatePersonalBankTabs()
+				end
+			end
 		end
 		self:GuildBankContentChanged()
 	end

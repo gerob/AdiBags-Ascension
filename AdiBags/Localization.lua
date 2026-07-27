@@ -63,6 +63,8 @@ L["AdiBags Anchor"] = true
 L["Backpack"] = true
 L["Bank"] = true
 L["PersonalBank"] = "Personal Bank"
+L["GuildBank"] = "Guild Bank"
+L["RealmBank"] = "Realm Bank"
 
 -- DefaultFilters.lua
 L["Ammunition"] = true
