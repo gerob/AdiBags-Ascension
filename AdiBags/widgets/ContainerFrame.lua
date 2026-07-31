@@ -209,20 +209,25 @@ function containerProto:OnCreate(name, bagIds, isBank)
 	addon.SetupTooltip(closeButton, L["Close"])
 	closeButton:SetFrameLevel(minFrameLevel)
 
-	if not self.isPersonalBank then
-		local bagSlotButton = CreateFrame("CheckButton", nil, self)
-		bagSlotButton:SetNormalTexture([[Interface\Buttons\Button-Backpack-Up]])
-		bagSlotButton:SetCheckedTexture([[Interface\Buttons\CheckButtonHilight]])
-		bagSlotButton:GetCheckedTexture():SetBlendMode("ADD")
-		bagSlotButton:SetScript('OnClick', BagSlotButton_OnClick)
-		bagSlotButton.panel = bagSlotPanel
-		bagSlotButton:SetWidth(18)
-		bagSlotButton:SetHeight(18)
-		addon.SetupTooltip(bagSlotButton, {
-			L["Equipped bags"],
-			L["Click to toggle the equipped bag panel, so you can change them."]
-		}, "ANCHOR_BOTTOMLEFT", -8, 0)
-		headerLeftRegion:AddWidget(bagSlotButton, 50)
+	-- Always create the bag slot button so ElvUI_AddOnSkins can find
+	-- HeaderLeftRegion.widgets[1] when skinning CreateContainerFrame.
+	-- PersonalBank uses tab UI instead; keep the button hidden there.
+	local bagSlotButton = CreateFrame("CheckButton", nil, self)
+	bagSlotButton:SetNormalTexture([[Interface\Buttons\Button-Backpack-Up]])
+	bagSlotButton:SetCheckedTexture([[Interface\Buttons\CheckButtonHilight]])
+	bagSlotButton:GetCheckedTexture():SetBlendMode("ADD")
+	bagSlotButton:SetScript('OnClick', BagSlotButton_OnClick)
+	bagSlotButton.panel = bagSlotPanel
+	bagSlotButton:SetWidth(18)
+	bagSlotButton:SetHeight(18)
+	addon.SetupTooltip(bagSlotButton, {
+		L["Equipped bags"],
+		L["Click to toggle the equipped bag panel, so you can change them."]
+	}, "ANCHOR_BOTTOMLEFT", -8, 0)
+	self.BagSlotButton = bagSlotButton
+	headerLeftRegion:AddWidget(bagSlotButton, 50)
+	if self.isPersonalBank then
+		bagSlotButton:Hide()
 	end
 
 	if select(4, GetBuildInfo()) == 40300 then
