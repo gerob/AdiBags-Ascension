@@ -124,6 +124,12 @@ end
 
 local guildBankButtonClass, guildBankButtonProto = addon:NewClass("GuildBankItemButton", "ItemButton")
 
+-- Explicit OnCreate so ElvUI_AddOnSkins' ItemButton OnCreate hook always runs
+-- (same path as backpack buttons) before guild-specific acquire setup.
+function guildBankButtonProto:OnCreate(...)
+	buttonProto.OnCreate(self, ...)
+end
+
 function guildBankButtonProto:OnAcquire(container, bag, slot)
 	buttonProto.OnAcquire(self, container, bag, slot)
 	self:SetScript('OnClick', self.OnClick)
@@ -591,12 +597,18 @@ if Masque then
 			AutoCast = false,
 		}
 	end)
-	hooksecurefunc(buttonProto, "UpdateBorder", function(self)
+	local function MasqueUpdateBorder(self)
+		if not self.masqueGroup or not self.masqueData then return end
 		self.masqueGroup:RemoveButton(self)
 		self.masqueGroup:AddButton(self, self.masqueData)
-	end)
+	end
+	hooksecurefunc(buttonProto, "UpdateBorder", MasqueUpdateBorder)
+	-- GuildBankItemButton overrides UpdateBorder; hook it separately so Masque
+	-- (and consistent border chrome) applies like backpack/bank buttons.
+	hooksecurefunc(guildBankButtonProto, "UpdateBorder", MasqueUpdateBorder)
 	buttonProto.masqueGroup = Masque:Group(addonName, addon.L["Backpack button"])
 	bankButtonProto.masqueGroup = Masque:Group(addonName, addon.L["Bank button"])
+	guildBankButtonProto.masqueGroup = Masque:Group(addonName, addon.L["GuildBank"].." button")
 end
 
 --------------------------------------------------------------------------------
@@ -649,11 +661,22 @@ function stackProto:GetKey()
 	return self.key
 end
 
+local function GetStackSlotInfo(slotId)
+	local bag, slot = GetBagSlotFromId(slotId)
+	if bag == PERSONAL_BANK_CONTAINER then
+		local tab = GetCurrentGuildBankTab and GetCurrentGuildBankTab() or 1
+		local _, count, locked = GetGuildBankItemInfo(tab, slot)
+		return bag, slot, count or 0, locked
+	end
+	local _, count, locked = GetContainerItemInfo(bag, slot)
+	return bag, slot, count, locked
+end
+
 function stackProto:UpdateVisibleSlot()
 	local bestLockedId, bestLockedCount
 	local bestUnlockedId, bestUnlockedCount
 	if self.slotId and self.slots[self.slotId] then
-		local _, count, locked = GetContainerItemInfo(GetBagSlotFromId(self.slotId))
+		local _, _, count, locked = GetStackSlotInfo(self.slotId)
 		count = count or 1
 		if locked then
 			bestLockedId, bestLockedCount = self.slotId, count
@@ -662,7 +685,7 @@ function stackProto:UpdateVisibleSlot()
 		end
 	end
 	for slotId in pairs(self.slots) do
-		local _, count, locked = GetContainerItemInfo(GetBagSlotFromId(slotId))
+		local _, _, count, locked = GetStackSlotInfo(slotId)
 		count = count or 1
 		if locked then
 			if not bestLockedId or count > bestLockedCount then
@@ -756,7 +779,8 @@ stackProto.FullUpdate = stackProto.Update
 function stackProto:UpdateCount()
 	local count = 0
 	for slotId in pairs(self.slots) do
-		count = count + (select(2, GetContainerItemInfo(GetBagSlotFromId(slotId))) or 1)
+		local _, _, slotCount = GetStackSlotInfo(slotId)
+		count = count + (slotCount or 1)
 	end
 	self.count = count
 	self.dirtyCount = nil
@@ -787,8 +811,7 @@ end
 local function StackSlotIterator(self, previous)
 	local slotId = next(self.slots, previous)
 	if slotId then
-		local bag, slot = GetBagSlotFromId(slotId)
-		local _, count = GetContainerItemInfo(bag, slot)
+		local bag, slot, count = GetStackSlotInfo(slotId)
 		return slotId, bag, slot, self:GetItemId(), count
 	end
 end

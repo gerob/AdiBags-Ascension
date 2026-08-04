@@ -998,6 +998,12 @@ do
 		frame:EnableMouse(true)
 	end
 
+	-- Report the bank session as shown while open so Ascension/Blizzard tab
+	-- logic does not treat a stashed GuildBankFrame as closed mid-session.
+	function personalBank:IsGuildBankFrameShown()
+		return not not self.sessionOpen
+	end
+
 	function personalBank:HookGuildBankFrame()
 		local frame = _G.GuildBankFrame
 		if not frame or self.guildBankHooked then return end
@@ -1006,7 +1012,7 @@ do
 
 		self:RawHook(frame, "Show", "OnGuildBankFrameShow", true)
 		self:RawHook(frame, "Hide", "OnGuildBankFrameHide", true)
-		self:RawHook(frame, "IsShown", "IsOpen", true)
+		self:RawHook(frame, "IsShown", "IsGuildBankFrameShown", true)
 		self.guildBankHooked = true
 
 		if alreadyShown then
@@ -1093,16 +1099,20 @@ do
 		if self.suppressGuildBankHide or self.stashingGuildBank then
 			return self.hooks[frame].Hide(frame)
 		end
+		-- Intentional close: restore and hide the stock frame.
 		if self.closingGuildBank then
 			RestoreStockGuildBankFrame(frame)
 			return self.hooks[frame].Hide(frame)
 		end
-		if self:IsOpen() then
-			self:Close()
-		else
-			RestoreStockGuildBankFrame(frame)
-			self.hooks[frame].Hide(frame)
+		-- Ignore Hide while the bank session is still open (e.g. Ascension
+		-- tab UI). Hiding the stock frame would cascade into CloseGuildBankFrame
+		-- and turn deposits into normal item use.
+		if self.sessionOpen then
+			StashStockGuildBankFrame(frame)
+			return
 		end
+		RestoreStockGuildBankFrame(frame)
+		self.hooks[frame].Hide(frame)
 	end
 
 	function personalBank:AdiBags_InteractingWindowChanged(event, new, old)
@@ -1190,16 +1200,9 @@ end
 local function AnchoredBagLayout(self)
 	self.anchor:ApplySettings()
 
-	local personalBankFrame
 	local open = {}
 	for index, bag in self:IterateBags(true) do
-		if bag.bagName == "PersonalBank" then
-			if bag:HasFrame() then
-				personalBankFrame = bag:GetFrame()
-			end
-		else
-			tinsert(open, bag)
-		end
+		tinsert(open, bag)
 	end
 
 	if #open > 0 then
@@ -1226,11 +1229,6 @@ local function AnchoredBagLayout(self)
 			nextFrame:SetPoint(fromPoint, lastFrame, toPoint, x / nextFrame:GetScale(), 0)
 			lastFrame = nextFrame
 		end
-	end
-
-	-- Personal Bank always uses its own saved position
-	if personalBankFrame and personalBankFrame.Anchor then
-		personalBankFrame.Anchor:ApplySettings()
 	end
 end
 
@@ -1270,9 +1268,6 @@ function addon:ToggleCurrentLayout()
 
 	if self.db.profile.positionMode == 'anchored' then
 
-		--===== Set position of current layout =====--
-		ManualBagLayout(self)
-
 		--===== Change DB setting to opposite layout =====--
 		self.db.profile.positionMode = 'manual'
 
@@ -1291,10 +1286,8 @@ function addon:ToggleCurrentLayout()
 		--===== Close Bag Menu =====--
 		CloseMenus()
 
-		--===== Send message to Container.lua menu frames =====--
-		self:SendMessage('AdiBags_ManualLayout')
-
-		-- print("Anchored layout")
+		-- Sync per-bag anchors and hide the green global anchor (same as options).
+		self:UpdatePositionMode()
 
 	elseif self.db.profile.positionMode == 'manual' then
 
@@ -1308,15 +1301,11 @@ function addon:ToggleCurrentLayout()
 			UIErrorsFrame:SetTimeVisible(5)
 		end)
 
-		AnchoredBagLayout(self)
-
 		self.db.profile.positionMode = 'anchored'
 
 		CloseMenus()
 
-		self:SendMessage('AdiBags_AnchoredLayout')
-
-		-- print("manual layout")
+		self:UpdatePositionMode()
 	end
 end
 
@@ -1411,13 +1400,18 @@ end
 
 function addon:ShouldStack(slotData)
 	local conf = self.db.profile.virtualStacks
+	-- Guild/personal bank uses GetGuildBankItemInfo; container virtual-stack
+	-- helpers break counts and make withdraws feel one-by-one.
+	if slotData.bag == self.PERSONAL_BANK_CONTAINER or slotData.isPersonalBank then
+		return
+	end
 	if not slotData.link then
 		return conf.freeSpace, "*Free*"
 	end
 	local window, unstack = self:GetInteractingWindow(), 0
 	if window then
 		unstack = conf.notWhenTrading
-		if unstack >= 4 and window ~= "BANKFRAME" then
+		if unstack >= 4 and window ~= "BANKFRAME" and window ~= "GUILDBANKFRAME" then
 			return
 		end
 	end

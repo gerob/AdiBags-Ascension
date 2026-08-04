@@ -570,6 +570,8 @@ function containerProto:OnCreate(name, bagIds, isBank)
 		-- print("Anchor created for frame:", self:GetName())
 		if addon.db.profile.positionMode == 'manual' then
 			anchor:Show()
+		else
+			anchor:Hide()
 		end
 
 		self.Anchor = anchor
@@ -952,8 +954,9 @@ function containerProto:OnPersonalBankTabClick(tabIndex)
 	if QueryGuildBankTab then
 		QueryGuildBankTab(tabIndex)
 	end
+	-- Do not force AdiBags_BagUpdated here: QueryGuildBankTab is async.
+	-- Content refreshes on GUILDBANKBAGSLOTS_CHANGED via GuildBankContentChanged.
 	self:UpdatePersonalBankTabs()
-	addon:SendMessage('AdiBags_BagUpdated', PERSONAL_BANK_CONTAINER)
 end
 
 function containerProto:UpdatePersonalBankTabs()
