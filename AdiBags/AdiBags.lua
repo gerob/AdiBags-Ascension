@@ -19,6 +19,7 @@ local ContainerFrame_GetOpenFrame = _G.ContainerFrame_GetOpenFrame
 local GetContainerNumSlots = _G.GetContainerNumSlots
 local geterrorhandler = _G.geterrorhandler
 local ipairs = _G.ipairs
+local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
 local next = _G.next
 local NUM_BAG_SLOTS = _G.NUM_BAG_SLOTS
 local NUM_BANKBAGSLOTS = _G.NUM_BANKBAGSLOTS
@@ -63,8 +64,8 @@ addon:SetDefaultModulePrototype{Debug = addon.Debug}
 --------------------------------------------------------------------------------
 
 do
-	-- Backpack and bags
-	local BAGS = { [BACKPACK_CONTAINER] = BACKPACK_CONTAINER }
+	-- Keyring, backpack, and bags
+	local BAGS = { [KEYRING_CONTAINER] = KEYRING_CONTAINER, [BACKPACK_CONTAINER] = BACKPACK_CONTAINER }
 	for i = 1, NUM_BAG_SLOTS do BAGS[i] = i end
 
 	-- Bank bags
@@ -191,6 +192,7 @@ local DEFAULT_SETTINGS = {
 		collapsedSections = {
 			['*'] = false,
 		},
+		hideKeyring = false,
 	}
 }
 

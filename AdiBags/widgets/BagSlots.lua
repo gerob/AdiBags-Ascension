@@ -34,6 +34,8 @@ local GetItemInfo = _G.GetItemInfo
 local GetNumBankSlots = _G.GetNumBankSlots
 local ipairs = _G.ipairs
 local IsInventoryItemLocked = _G.IsInventoryItemLocked
+local KEYRING = _G.KEYRING
+local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
 local next = _G.next
 local NUM_BAG_SLOTS = _G.NUM_BAG_SLOTS
 local NUM_BANKGENERIC_SLOTS = _G.NUM_BANKGENERIC_SLOTS
@@ -43,6 +45,7 @@ local PickupBagFromSlot = _G.PickupBagFromSlot
 local PickupContainerItem = _G.PickupContainerItem
 local PlaySound = _G.PlaySound
 local PutItemInBag = _G.PutItemInBag
+local PutKeyInKeyRing = _G.PutKeyInKeyRing
 local select = _G.select
 local SetItemButtonDesaturated = _G.SetItemButtonDesaturated
 local SetItemButtonTexture = _G.SetItemButtonTexture
@@ -382,6 +385,121 @@ function bankButtonProto:OnShow()
 end
 
 --------------------------------------------------------------------------------
+-- Keyring button (KEYRING_CONTAINER has no inventory slot id)
+--------------------------------------------------------------------------------
+
+local KEYRING_ICON = [[Interface\Icons\INV_Misc_Key_14]]
+local keyringButtonClass, keyringButtonProto = addon:NewClass("KeyringSlotButton", "BagSlotButton")
+
+function keyringButtonProto:OnCreate(bag)
+	self.bag = bag
+	self.invSlot = nil
+	self.tooltipText = KEYRING or L["Keyring"]
+
+	self:GetNormalTexture():SetSize(64 * 37 / ITEM_SIZE, 64 * 37 / ITEM_SIZE)
+	self:SetSize(ITEM_SIZE, ITEM_SIZE)
+
+	self:EnableMouse(true)
+	self:RegisterForDrag("LeftButton")
+	self:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+	self:SetScript('OnShow', self.OnShow)
+	self:SetScript('OnHide', self.OnHide)
+	self:SetScript('OnEnter', self.OnEnter)
+	self:SetScript('OnLeave', self.OnLeave)
+	self:SetScript('OnDragStart', nil)
+	self:SetScript('OnReceiveDrag', self.OnClick)
+	self:SetScript('OnClick', self.OnClick)
+	self.UpdateTooltip = self.OnEnter
+
+	self.Count = _G[self:GetName().."Count"]
+end
+
+function keyringButtonProto:GetKeyringSectionKey()
+	local name = KEYRING or L["Keyring"]
+	return addon:BuildSectionKey(name)
+end
+
+function keyringButtonProto:IsKeyringHidden()
+	return not not addon.db.char.hideKeyring
+end
+
+function keyringButtonProto:ToggleKeyringSection()
+	addon.db.char.hideKeyring = not addon.db.char.hideKeyring
+
+	-- Keep bag-sort Keyring section collapse in sync when that section exists.
+	local key = self:GetKeyringSectionKey()
+	local container = self:GetParent() and self:GetParent():GetParent()
+	local section = container and container.sections and container.sections[key]
+	local hidden = addon.db.char.hideKeyring
+	if section then
+		section:SetCollapsed(hidden)
+	else
+		addon.db.char.collapsedSections[key] = hidden
+	end
+
+	-- Force full redispatch so keys stay hidden after leaving FilterByBag mode.
+	addon:SendMessage('AdiBags_FiltersChanged', true)
+	self:Update()
+end
+
+function keyringButtonProto:UpdateLock()
+	if addon.globalLock then
+		self:Disable()
+		SetItemButtonDesaturated(self, true)
+	else
+		self:Enable()
+		SetItemButtonDesaturated(self, self:IsKeyringHidden())
+	end
+end
+
+function keyringButtonProto:Update()
+	self.hasItem = true
+	local total = GetContainerNumSlots(self.bag) or 0
+	local free = GetContainerNumFreeSlots(self.bag) or 0
+	if total > 0 then
+		self.isEmpty = (total == free)
+		self.Count:SetFormattedText("%d", total - free)
+		if free == 0 then
+			self.Count:SetTextColor(1, 0, 0)
+		else
+			self.Count:SetTextColor(1, 1, 1)
+		end
+		self.Count:Show()
+	else
+		self.Count:Hide()
+	end
+	SetItemButtonTexture(self, KEYRING_ICON)
+	self:UpdateLock()
+end
+
+function keyringButtonProto:OnEnter()
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText(self.tooltipText)
+	GameTooltip:AddLine(L["Click to show or hide the keyring."], 1, 1, 1)
+	if CursorHasItem() and PutKeyInKeyRing then
+		GameTooltip:AddLine(L["Drop an item to put it in the keyring."], 0.2, 1, 0.2)
+	end
+	GameTooltip:Show()
+	CursorUpdate(self)
+end
+
+function keyringButtonProto:OnClick(button)
+	if CursorHasItem() and PutKeyInKeyRing then
+		PutKeyInKeyRing()
+		return
+	end
+	self:ToggleKeyringSection()
+end
+
+function keyringButtonProto:OnDragStart()
+end
+
+function keyringButtonProto:ITEM_LOCK_CHANGED()
+	return self:Update()
+end
+
+--------------------------------------------------------------------------------
 -- Backpack bag panel scripts
 --------------------------------------------------------------------------------
 
@@ -442,7 +560,12 @@ function addon:CreateBagSlotPanel(container, name, bags, isBank)
 	local height = 0
 	for i, bag in ipairs(bags) do
 		if bag ~= BACKPACK_CONTAINER and bag ~= BANK_CONTAINER and bag ~= addon.PERSONAL_BANK_CONTAINER then
-			local button = buttonClass:Create(bag)
+			local button
+			if bag == KEYRING_CONTAINER then
+				button = keyringButtonClass:Create(bag)
+			else
+				button = buttonClass:Create(bag)
+			end
 			button:SetParent(self)
 			button:SetPoint("TOPLEFT", x, -TOP_PADDING)
 			button:Show()

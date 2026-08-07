@@ -35,6 +35,8 @@ local GetItemInfo = _G.GetItemInfo
 local GetMerchantItemLink = _G.GetMerchantItemLink
 local GetNumGuildBankTabs = _G.GetNumGuildBankTabs
 local ipairs = _G.ipairs
+local KEYRING = _G.KEYRING
+local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
 local max = _G.max
 local next = _G.next
 local NUM_BAG_SLOTS = _G.NUM_BAG_SLOTS
@@ -1175,7 +1177,9 @@ end
 local function FilterByBag(slotData)
 	local bag = slotData.bag
 	local name
-	if bag == BACKPACK_CONTAINER then
+	if bag == KEYRING_CONTAINER then
+		name = KEYRING or L["Keyring"]
+	elseif bag == BACKPACK_CONTAINER then
 		name = L['Backpack']
 	elseif bag == BANK_CONTAINER then
 		name = L['Bank']
@@ -1209,6 +1213,12 @@ end
 
 function containerProto:DispatchItem(slotData)
 	local slotId = slotData.slotId
+	-- Persist across bag-panel toggles: collapsed Keyring section only
+	-- applies in FilterByBag mode, so hide keyring slots entirely when set.
+	if addon.db.char.hideKeyring and slotData.bag == KEYRING_CONTAINER then
+		self:RemoveSlot(slotId)
+		return
+	end
 	local sectionName, category, filterName, shouldStack, stackHint = self:FilterSlot(slotData)
 	assert(sectionName, "sectionName is nil, item: "..(slotData.link or "none"))
 	local stackKey = shouldStack and strjoin('#', stackHint, tostring(slotData.bagFamily)) or nil
