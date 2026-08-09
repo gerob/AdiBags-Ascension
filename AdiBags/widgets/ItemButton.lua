@@ -34,12 +34,10 @@ local ITEM_QUALITY_UNCOMMON = _G.ITEM_QUALITY_UNCOMMON
 local next = _G.next
 local OpenStackSplitFrame = _G.OpenStackSplitFrame
 local pairs = _G.pairs
-local PickupContainerItem = _G.PickupContainerItem
 local PickupGuildBankItem = _G.PickupGuildBankItem
 local ResetCursor = _G.ResetCursor
 local select = _G.select
 local SetItemButtonDesaturated = _G.SetItemButtonDesaturated
-local SocketContainerItem = _G.SocketContainerItem
 local SplitContainerItem = _G.SplitContainerItem
 local SplitGuildBankItem = _G.SplitGuildBankItem
 local StackSplitFrame = _G.StackSplitFrame
@@ -47,11 +45,7 @@ local TEXTURE_ITEM_QUEST_BANG = _G.TEXTURE_ITEM_QUEST_BANG
 local TEXTURE_ITEM_QUEST_BORDER = _G.TEXTURE_ITEM_QUEST_BORDER
 local tonumber = _G.tonumber
 local tostring = _G.tostring
-local UseContainerItem = _G.UseContainerItem
 local wipe = _G.wipe
-
-local BankFrameItemButtonGeneric_OnClick = _G.BankFrameItemButtonGeneric_OnClick
-local ContainerFrameItemButton_OnClick = _G.ContainerFrameItemButton_OnClick
 --GLOBALS>
 
 local GetSlotId = addon.GetSlotId
@@ -80,74 +74,21 @@ function buttonProto:OnCreate()
 	self:RegisterForClicks("LeftButtonUp","RightButtonUp")
 	self:SetScript('OnShow', self.OnShow)
 	self:SetScript('OnHide', self.OnHide)
-	-- 3.3.5 item templates dispatch modified clicks from OnClick, not OnModifiedClick.
-	-- Also keep SplitStack on AdiBags bag/slot (Blizzard resets it to GetParent():GetID()).
+	-- Do not replace template OnClick (eats modifier clicks / taints UseContainerItem).
+	-- PreClick only syncs parent bag id so Blizzard handlers see the correct bag.
 	self.SplitStack = function(button, split)
 		SplitContainerItem(button.bag, button.slot, split)
 	end
-	self:SetScript('OnClick', self.OnClick)
+	self:SetScript('PreClick', self.PreClick)
 	self:SetWidth(ITEM_SIZE)
 	self:SetHeight(ITEM_SIZE)
 end
 
-function buttonProto:OpenSplitFrame(count, anchor, anchorTo)
-	count = tonumber(count) or 0
-	if count < 2 or not OpenStackSplitFrame then
-		return
-	end
-	-- Re-assert SplitStack; Blizzard handlers overwrite it with parent:GetID().
-	self.SplitStack = function(button, split)
-		SplitContainerItem(button.bag, button.slot, split)
-	end
-	OpenStackSplitFrame(count, self, anchor or "BOTTOMRIGHT", anchorTo or "TOPRIGHT")
-end
-
-function buttonProto:HandleModifiedClick(button)
-	if not self.hasItem then return end
-	-- Check SPLITSTACK before HandleModifiedItemClick; Ascension/chat-link
-	-- handling can otherwise consume Shift+Right-click.
-	if IsModifiedClick("SPLITSTACK") then
-		local _, itemCount, locked = GetContainerItemInfo(self.bag, self.slot)
-		if not locked then
-			self:OpenSplitFrame(itemCount or self.count, "BOTTOMRIGHT", "TOPRIGHT")
-		end
-		return
-	end
-	if SocketContainerItem and IsModifiedClick("SOCKETITEM") then
-		SocketContainerItem(self.bag, self.slot)
-		return
-	end
-	local link = self:GetItemLink()
-	if link then
-		HandleModifiedItemClick(link)
-	end
-end
-
-function buttonProto:OnClick(button)
-	-- Same AUTOLOOTTOGGLE exception as ContainerFrameItemButtonTemplate.
-	local modifiedClick = IsModifiedClick()
-	if button ~= "LeftButton" and modifiedClick and IsModifiedClick("AUTOLOOTTOGGLE") then
-		local _, _, _, _, _, lootable = GetContainerItemInfo(self.bag, self.slot)
-		if lootable then
-			modifiedClick = false
-		end
-	end
-	if modifiedClick then
-		return self:HandleModifiedClick(button)
-	end
-	-- Normal click: keep Blizzard behavior, with parent id synced to self.bag.
+function buttonProto:PreClick(button)
+	if self.bag == nil then return end
 	local parent = self:GetParent()
-	if parent and self.bag ~= nil then
+	if parent then
 		parent:SetID(self.bag)
-	end
-	if self.bag == BANK_CONTAINER and BankFrameItemButtonGeneric_OnClick then
-		BankFrameItemButtonGeneric_OnClick(self, button)
-	elseif ContainerFrameItemButton_OnClick then
-		ContainerFrameItemButton_OnClick(self, button)
-	elseif button == "LeftButton" then
-		PickupContainerItem(self.bag, self.slot)
-	else
-		UseContainerItem(self.bag, self.slot)
 	end
 end
 
@@ -343,6 +284,8 @@ end
 
 function guildBankButtonProto:OnClick(button)
 	local tab, slot = self:GetGuildTab(), self.slot
+	-- Only intercept stack-split; other modifiers use HandleModifiedItemClick
+	-- so chat-link / dress-up / other addons keep working.
 	if IsModifiedClick("SPLITSTACK") then
 		local _, count, locked = GetGuildBankItemInfo(tab, slot)
 		if not locked then
