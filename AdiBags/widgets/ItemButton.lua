@@ -32,11 +32,14 @@ local IsModifiedClick = _G.IsModifiedClick
 local ITEM_QUALITY_POOR = _G.ITEM_QUALITY_POOR
 local ITEM_QUALITY_UNCOMMON = _G.ITEM_QUALITY_UNCOMMON
 local next = _G.next
+local OpenStackSplitFrame = _G.OpenStackSplitFrame
 local pairs = _G.pairs
 local PickupGuildBankItem = _G.PickupGuildBankItem
 local ResetCursor = _G.ResetCursor
 local select = _G.select
 local SetItemButtonDesaturated = _G.SetItemButtonDesaturated
+local SplitContainerItem = _G.SplitContainerItem
+local SplitGuildBankItem = _G.SplitGuildBankItem
 local StackSplitFrame = _G.StackSplitFrame
 local TEXTURE_ITEM_QUEST_BANG = _G.TEXTURE_ITEM_QUEST_BANG
 local TEXTURE_ITEM_QUEST_BORDER = _G.TEXTURE_ITEM_QUEST_BORDER
@@ -71,8 +74,29 @@ function buttonProto:OnCreate()
 	self:RegisterForClicks("LeftButtonUp","RightButtonUp")
 	self:SetScript('OnShow', self.OnShow)
 	self:SetScript('OnHide', self.OnHide)
+	-- Use AdiBags bag/slot ids; Blizzard template SplitStack uses GetParent():GetID()
+	-- which breaks when buttons are reparented under itemParentFrames.
+	self.SplitStack = function(button, split)
+		SplitContainerItem(button.bag, button.slot, split)
+	end
+	self:SetScript('OnModifiedClick', self.OnModifiedClick)
 	self:SetWidth(ITEM_SIZE)
 	self:SetHeight(ITEM_SIZE)
+end
+
+function buttonProto:OnModifiedClick(button)
+	if not self.hasItem then return end
+	local link = self:GetItemLink()
+	if link and HandleModifiedItemClick(link) then
+		return
+	end
+	if IsModifiedClick("SPLITSTACK") then
+		local _, itemCount, locked = GetContainerItemInfo(self.bag, self.slot)
+		itemCount = itemCount or self.count or 0
+		if not locked and itemCount > 1 then
+			OpenStackSplitFrame(itemCount, self, "BOTTOMRIGHT", "TOPRIGHT")
+		end
+	end
 end
 
 function buttonProto:OnAcquire(container, bag, slot)
@@ -128,6 +152,9 @@ local guildBankButtonClass, guildBankButtonProto = addon:NewClass("GuildBankItem
 -- (same path as backpack buttons) before guild-specific acquire setup.
 function guildBankButtonProto:OnCreate(...)
 	buttonProto.OnCreate(self, ...)
+	self.SplitStack = function(button, split)
+		SplitGuildBankItem(button:GetGuildTab(), button.slot, split)
+	end
 end
 
 function guildBankButtonProto:OnAcquire(container, bag, slot)
@@ -253,6 +280,16 @@ end
 
 function guildBankButtonProto:OnClick(button)
 	local tab, slot = self:GetGuildTab(), self.slot
+	-- Modified clicks are delivered to OnClick when no OnModifiedClick is used
+	-- after SetScript('OnClick'); handle split here as well as OnModifiedClick.
+	if IsModifiedClick("SPLITSTACK") then
+		local _, count, locked = GetGuildBankItemInfo(tab, slot)
+		count = count or self.count or 0
+		if not locked and count > 1 and OpenStackSplitFrame then
+			OpenStackSplitFrame(count, self, "BOTTOMLEFT", "TOPLEFT")
+		end
+		return
+	end
 	if IsModifiedClick() then
 		local link = GetGuildBankItemLink(tab, slot)
 		if link then
@@ -264,6 +301,23 @@ function guildBankButtonProto:OnClick(button)
 		AutoStoreGuildBankItem(tab, slot)
 	else
 		PickupGuildBankItem(tab, slot)
+	end
+end
+
+function guildBankButtonProto:OnModifiedClick(button)
+	if not self.hasItem then return end
+	local tab, slot = self:GetGuildTab(), self.slot
+	if IsModifiedClick("SPLITSTACK") then
+		local _, count, locked = GetGuildBankItemInfo(tab, slot)
+		count = count or self.count or 0
+		if not locked and count > 1 and OpenStackSplitFrame then
+			OpenStackSplitFrame(count, self, "BOTTOMLEFT", "TOPLEFT")
+		end
+		return
+	end
+	local link = GetGuildBankItemLink(tab, slot)
+	if link then
+		HandleModifiedItemClick(link)
 	end
 end
 
