@@ -1,5 +1,5 @@
 --[[
-AdiBags_Outfutter - Adds Outfitter set filters to AdiBags.
+AdiBags_Ascension - Ascension-specific filters for AdiBags.
 Copyright 2010 Adirelle (adirelle@tagada-team.net)
 All rights reserved.
 --]]
@@ -24,6 +24,61 @@ local filter = addon:RegisterFilter("Ascension", 95, 'AceEvent-3.0')
 filter.uiName = L['uiName']
 filter.uiDesc = L['UiDesc']
 
+local SCAN_TIP_NAME = "AdiBagsAscensionScanTip"
+local scanTip
+local worldforgedCache = {}
+
+local function EnsureScanTip()
+	if scanTip then return end
+	scanTip = CreateFrame("GameTooltip", SCAN_TIP_NAME, nil, "GameTooltipTemplate")
+	scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+end
+
+-- Returns true / false / nil (nil = tooltip not ready; do not cache).
+local function TooltipHasWorldforged(link)
+	if not link then return false end
+	EnsureScanTip()
+	scanTip:ClearLines()
+	scanTip:SetHyperlink(link)
+
+	local line1 = _G[SCAN_TIP_NAME .. "TextLeft1"]
+	local line1Text = line1 and line1:GetText()
+	if line1Text == "Retrieving item information..." then
+		return nil
+	end
+
+	local numLines = scanTip:NumLines() or 0
+	for i = 1, numLines do
+		local fs = _G[SCAN_TIP_NAME .. "TextLeft" .. i]
+		local text = fs and fs:GetText()
+		if text and string.find(string.lower(text), "worldforged", 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function IsWorldforged(itemId, link)
+	if not itemId then return false end
+	local cached = worldforgedCache[itemId]
+	if cached ~= nil then
+		return cached
+	end
+
+	local item = GetItemInfoInstant(itemId)
+	if item and item.description and string.find(string.lower(item.description), "worldforged", 1, true) then
+		worldforgedCache[itemId] = true
+		return true
+	end
+
+	local tipResult = TooltipHasWorldforged(link)
+	if tipResult == nil then
+		return false -- retry on next bag update; do not cache
+	end
+	worldforgedCache[itemId] = tipResult
+	return tipResult
+end
+
 function filter:OnInitialize()
 	self.db = addon.db:RegisterNamespace('Ascension', {
 		profile = { oneSectionPerSet = true },
@@ -32,6 +87,8 @@ function filter:OnInitialize()
 end
 
 function filter:OnEnable()
+	EnsureScanTip()
+	wipe(worldforgedCache)
 	addon:UpdateFilters()
 end
 
@@ -40,6 +97,10 @@ function filter:OnDisable()
 end
 
 function filter:Filter(slotData)
+	-- Worldforged (tooltip-tagged) — before Transmog so WF gear is not miscategorized.
+	if IsWorldforged(slotData.itemId, slotData.link) then
+		return "Worldforged", "Equipment"
+	end
 
 	-- Transmog items
 	if (slotData.class == "Weapon" or slotData.class == "Armor") then

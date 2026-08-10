@@ -73,6 +73,7 @@ Enable or configure modules under **Filters** and **Modules** in the `/ab` optio
 - **Keyring** — Dedicated keyring slot button and character option to hide the keyring section.
 - **Personal / Guild / Realm bank** — Bank type detection, safer guild/personal bank tab handling, and layout fixes (including ElvUI skin compatibility for personal bank).
 - **Stack split** — Shift+left-click stack split on backpack, bank, and guild/personal bank without breaking chat links or other modifier clicks.
+- **Worldforged section** — Items tagged Worldforged in their tooltip are grouped under Equipment → Worldforged (AdiBags_Ascension filter).
 
 See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the current release summary.
 

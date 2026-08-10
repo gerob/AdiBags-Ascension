@@ -9,6 +9,7 @@ local L = addon.L
 
 --<GLOBALS
 local _G = _G
+local CANCEL = _G.CANCEL
 local GetContainerItemID = _G.GetContainerItemID
 local GetContainerNumSlots = _G.GetContainerNumSlots
 local GetItemInfo = _G.GetItemInfo
@@ -18,10 +19,15 @@ local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
 local pairs = _G.pairs
 local select = _G.select
 local setmetatable = _G.setmetatable
+local StaticPopup_Hide = _G.StaticPopup_Hide
+local StaticPopup_Show = _G.StaticPopup_Show
+local StaticPopupDialogs = _G.StaticPopupDialogs
 local tonumber = _G.tonumber
+local tinsert = _G.tinsert
 local type = _G.type
 local UseContainerItem = _G.UseContainerItem
 local wipe = _G.wipe
+local YES = _G.YES
 --GLOBALS>
 
 local JUNK = addon.BI['Junk']
@@ -50,9 +56,29 @@ local cache = setmetatable({}, { __index = function(t, itemId)
 	return isJunk
 end})
 
+local SELL_CONFIRM_THRESHOLD = 10
+local CONFIRM_SELL_JUNK = "ADIBAGS_CONFIRM_SELL_JUNK"
+
 function mod:OnInitialize()
 	self.db = addon.db:RegisterNamespace(self.moduleName, DEFAULTS)
 	prefs = self.db.profile
+	self.pendingSellSlots = nil
+
+	StaticPopupDialogs[CONFIRM_SELL_JUNK] = {
+		text = L["AdiBags is about to sell %d junk items.\n\nWarning: recovering items through Ascension is more expensive than using the merchant buyback."],
+		button1 = YES,
+		button2 = CANCEL,
+		OnAccept = function()
+			mod:SellPendingJunk()
+		end,
+		OnCancel = function()
+			mod.pendingSellSlots = nil
+		end,
+		timeout = 0,
+		whileDead = 1,
+		hideOnEscape = 1,
+		preferredIndex = 3,
+	}
 end
 
 function mod:OnEnable()
@@ -69,6 +95,7 @@ end
 
 function mod:OnDisable()
 	self:CancelAllTimers()
+	self:ClearPendingSell()
 	self:ClearAllJunkDropTargets()
 end
 
@@ -150,6 +177,12 @@ end
 
 function mod:MERCHANT_CLOSED()
 	self:CancelAllTimers()
+	self:ClearPendingSell()
+end
+
+function mod:ClearPendingSell()
+	self.pendingSellSlots = nil
+	StaticPopup_Hide(CONFIRM_SELL_JUNK)
 end
 
 -- Drag-to-Junk sets a FilterOverride + include entry. Manual Include list
@@ -167,13 +200,8 @@ local function ClearJunkMark(itemId)
 	return true
 end
 
-function mod:MaybeSellJunk()
-	if not prefs.sellWithAscension then return end
-	if not IsAscensionAutoSellChecked() then return end
-	local merchant = _G.MerchantFrame
-	if not merchant or not merchant:IsShown() then return end
-
-	local cleared = false
+function mod:CollectSellableJunk()
+	local slots = {}
 	for bag in pairs(addon.BAG_IDS.BAGS) do
 		if bag ~= KEYRING_CONTAINER then
 			for slot = 1, GetContainerNumSlots(bag) do
@@ -182,13 +210,28 @@ function mod:MaybeSellJunk()
 					local _, _, quality, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemId)
 					-- Leave greys to Ascension; sell marked / non-poor junk only.
 					if quality and quality > ITEM_QUALITY_POOR and vendorPrice and vendorPrice > 0 then
-						UseContainerItem(bag, slot)
-						-- Drop one-shot junk marks so buyback/recover isn't auto-sold again.
-						if ClearJunkMark(itemId) then
-							cleared = true
-						end
+						tinsert(slots, { bag = bag, slot = slot, itemId = itemId })
 					end
 				end
+			end
+		end
+	end
+	return slots
+end
+
+function mod:SellJunkSlots(slots)
+	if not slots then return end
+	local merchant = _G.MerchantFrame
+	if not merchant or not merchant:IsShown() then return end
+
+	local cleared = false
+	for i = 1, #slots do
+		local entry = slots[i]
+		local itemId = GetContainerItemID(entry.bag, entry.slot)
+		if itemId and itemId == entry.itemId then
+			UseContainerItem(entry.bag, entry.slot)
+			if ClearJunkMark(itemId) then
+				cleared = true
 			end
 		end
 	end
@@ -199,6 +242,30 @@ function mod:MaybeSellJunk()
 		if acr then
 			acr:NotifyChange(addonName)
 		end
+	end
+end
+
+function mod:SellPendingJunk()
+	local slots = self.pendingSellSlots
+	self.pendingSellSlots = nil
+	self:SellJunkSlots(slots)
+end
+
+function mod:MaybeSellJunk()
+	if not prefs.sellWithAscension then return end
+	if not IsAscensionAutoSellChecked() then return end
+	local merchant = _G.MerchantFrame
+	if not merchant or not merchant:IsShown() then return end
+
+	local slots = self:CollectSellableJunk()
+	local count = #slots
+	if count == 0 then return end
+
+	if count > SELL_CONFIRM_THRESHOLD then
+		self.pendingSellSlots = slots
+		StaticPopup_Show(CONFIRM_SELL_JUNK, count)
+	else
+		self:SellJunkSlots(slots)
 	end
 end
 

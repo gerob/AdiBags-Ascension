@@ -221,6 +221,7 @@ L["Sell AdiBags Junk with Ascension auto-sell"] = true
 L["Show empty Junk section"] = true
 L["Keep the Junk section visible even when it has no items, so you can drag items onto it to mark them as junk."] = true
 L["When Ascension's merchant Auto Sell Junk checkbox is enabled, also sell items AdiBags considers junk (including items dragged into the Junk section). Grey items remain handled by Ascension."] = true
+L["AdiBags is about to sell %d junk items.\n\nWarning: recovering items through Ascension is more expensive than using the merchant buyback."] = true
 
 -- modules/MoneyFrame.lua
 L["Display character money at bottom right of the backpack."] = true
