@@ -1,14 +1,14 @@
 ## Interface: 30300
-## X-GitHub-Repository: Sattva-108/AdiBags-WoTLK-3.3.5
-## X-GitHub-Project-Homepage: https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5
+## X-GitHub-Repository: gerob/AdiBags-Ascension
+## X-GitHub-Project-Homepage: https://github.com/gerob/AdiBags-Ascension
 ## X-GitHub-Project-Licence: MIT
-## X-GitHub-Project-Issues: https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5/issues
-## X-GitHub-Project-Download: https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5/archive/refs/heads/main.zip
+## X-GitHub-Project-Issues: https://github.com/gerob/AdiBags-Ascension/issues
+## X-GitHub-Project-Download: https://github.com/gerob/AdiBags-Ascension/releases/latest
 
 ## Title: AdiBags
 ## Notes: Adirelle's bag addon.
 ## Author: Adirelle, backported to 3.3.5 by Sattva#7238 - discord
-## Version: 3.3.5
+## Version: 3.3.5-ASC
 ## SavedVariables: AdiBagsDB
 ## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibBabble-Inventory-3.0, AdiDebug, LibSharedMedia-3.0, Scrap, BrainDead, ProfessionsVault, Masque
 

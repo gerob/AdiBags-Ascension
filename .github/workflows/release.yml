@@ -1,0 +1,29 @@
+name: Release addon
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package addon
+        run: |
+          zip -r AdiBags_Ascension-${{ github.ref_name }}.zip \
+            AdiBags \
+            AdiBags_Ascension \
+            README.md \
+            RELEASE_NOTES.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AdiBags_Ascension-${{ github.ref_name }}.zip
+          body_path: RELEASE_NOTES.md
