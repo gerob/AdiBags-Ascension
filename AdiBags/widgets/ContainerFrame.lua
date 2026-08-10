@@ -1130,10 +1130,17 @@ function containerProto:UpdateContent(bag)
 				slotData.itemId = itemId
 				slotData.name, slotData.quality, slotData.iLevel, slotData.reqLevel, slotData.class, slotData.subclass, slotData.equipSlot, slotData.texture, slotData.vendorPrice = name, quality, iLevel, reqLevel, class, subclass, equipSlot, texture, vendorPrice
 				slotData.maxStack = maxStack or (link and 1 or 0)
-				added[slotData.slotId] = slotData
+				-- While keyring is hidden, drop UI buttons but keep content data.
+				if not (addon.db.char.hideKeyring and bag == KEYRING_CONTAINER) then
+					added[slotData.slotId] = slotData
+				end
 			elseif slotData.count ~= count then
 				slotData.count = count
-				changed[slotData.slotId] = slotData
+				if addon.db.char.hideKeyring and bag == KEYRING_CONTAINER then
+					removed[slotData.slotId] = slotData.link
+				else
+					changed[slotData.slotId] = slotData
+				end
 			end
 		end
 	end
@@ -1297,13 +1304,21 @@ function containerProto:UpdateButtons()
 		self:SendMessage('AdiBags_PostFilter', self)
 	end
 
-	-- Just push the buttons into dirtyButtons
+	-- Update existing buttons; recover slots that have content but no button
+	-- (e.g. hideKeyring removed them, or a filter/stack rebuild race).
 	local buttons = self.buttons
-	for slotId in pairs(changed) do
-		buttons[slotId]:FullUpdate()
-		--[===[@debug@
-		numChanged = numChanged + 1
-		--@end-debug@]===]
+	if buttons then
+		for slotId, slotData in pairs(changed) do
+			local button = buttons[slotId]
+			if button then
+				button:FullUpdate()
+			elseif slotData then
+				self:DispatchItem(slotData)
+			end
+			--[===[@debug@
+			numChanged = numChanged + 1
+			--@end-debug@]===]
+		end
 	end
 
 	self:SendMessage('AdiBags_PostContentUpdate', self, added, removed, changed)
