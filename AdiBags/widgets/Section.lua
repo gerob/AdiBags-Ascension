@@ -154,6 +154,7 @@ function sectionProto:OnRelease()
 	self.name = nil
 	self.category = nil
 	self.container = nil
+	self.keepWhenEmpty = nil
 end
 
 -- function sectionProto:AdiBags_ConfigChanged(_, name)
@@ -352,6 +353,16 @@ function sectionProto:PutButtonAt(button, index)
 end
 
 function sectionProto:FitInSpace(maxWidth, maxHeight, xOffset, rowHeight)
+	-- Header-only sticky sections (e.g. empty Junk drop target).
+	if self.count == 0 then
+		if self.keepWhenEmpty then
+			local height = HEADER_SIZE
+			local wasted = maxWidth * maxHeight - SLOT_OFFSET * HEADER_SIZE
+			return true, 1, 0, wasted, height
+		end
+		return false
+	end
+
 	local maxColumns = floor((ceil(maxWidth) + ITEM_SPACING) / SLOT_OFFSET)
 	local maxRows = floor((ceil(maxHeight) - HEADER_SIZE + ITEM_SPACING) / SLOT_OFFSET)
 	if maxColumns * maxRows < self.count then

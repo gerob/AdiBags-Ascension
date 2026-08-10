@@ -1472,7 +1472,7 @@ function containerProto:LayoutSections(cleanLevel)
 	local dirtyLevel = self.dirtyLevel or 0
 	local stickyDirty = 0
 	for key, section in pairs(self.sections) do
-		if section:IsEmpty() then
+		if section:IsEmpty() and not section.keepWhenEmpty then
 			section:Release()
 			self.sections[key] = nil
 			dirtyLevel = max(dirtyLevel, 1)

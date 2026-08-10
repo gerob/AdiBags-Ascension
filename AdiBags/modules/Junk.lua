@@ -9,19 +9,24 @@ local L = addon.L
 
 --<GLOBALS
 local _G = _G
+local GetContainerItemID = _G.GetContainerItemID
+local GetContainerNumSlots = _G.GetContainerNumSlots
 local GetItemInfo = _G.GetItemInfo
 local ITEM_QUALITY_POOR = _G.ITEM_QUALITY_POOR
 local ITEM_QUALITY_UNCOMMON = _G.ITEM_QUALITY_UNCOMMON
+local KEYRING_CONTAINER = _G.KEYRING_CONTAINER
+local pairs = _G.pairs
 local select = _G.select
 local setmetatable = _G.setmetatable
 local tonumber = _G.tonumber
 local type = _G.type
+local UseContainerItem = _G.UseContainerItem
 local wipe = _G.wipe
 --GLOBALS>
 
 local JUNK = addon.BI['Junk']
 
-local mod = addon:RegisterFilter("Junk", 85, "AceEvent-3.0", "AceHook-3.0")
+local mod = addon:RegisterFilter("Junk", 85, "AceEvent-3.0", "AceHook-3.0", "AceTimer-3.0")
 mod.uiName = JUNK
 mod.uiDesc = L['Put items of poor quality or labeled as junk in the "Junk" section.']
 
@@ -32,6 +37,8 @@ local DEFAULTS = {
 		exclude = {
 			[6948] = true,
 		},
+		sellWithAscension = true,
+		showEmptySection = true,
 	},
 }
 
@@ -52,7 +59,147 @@ function mod:OnEnable()
 	prefs = self.db.profile
 	self:RegisterMessage('AdiBags_OverrideFilter')
 	self:Hook(addon, 'IsJunk')
+	self:RegisterEvent('MERCHANT_SHOW')
+	self:RegisterEvent('MERCHANT_CLOSED')
+	self:HookAscensionSellCheck()
+	addon:HookBagFrameCreation(self, 'OnBagFrameCreated')
+	self:EnsureAllJunkDropTargets()
 	wipe(cache)
+end
+
+function mod:OnDisable()
+	self:CancelAllTimers()
+	self:ClearAllJunkDropTargets()
+end
+
+--------------------------------------------------------------------------------
+-- Empty Junk section drop target
+--------------------------------------------------------------------------------
+
+function mod:EnsureJunkDropTarget(container)
+	if not container or not container.GetSection then return end
+	if not prefs.showEmptySection then
+		local key = addon:BuildSectionKey(JUNK, JUNK)
+		local section = container.sections and container.sections[key]
+		if section and section.keepWhenEmpty then
+			section.keepWhenEmpty = nil
+			container.forceLayout = true
+		end
+		return
+	end
+	local section = container:GetSection(JUNK, JUNK)
+	if not section.keepWhenEmpty then
+		section.keepWhenEmpty = true
+		container.forceLayout = true
+	end
+end
+
+function mod:EnsureAllJunkDropTargets()
+	for _, bag in addon:IterateBags() do
+		if bag:HasFrame() then
+			self:EnsureJunkDropTarget(bag:GetFrame())
+		end
+	end
+	self:SendMessage('AdiBags_LayoutChanged')
+end
+
+function mod:ClearAllJunkDropTargets()
+	for _, bag in addon:IterateBags() do
+		if bag:HasFrame() then
+			local container = bag:GetFrame()
+			local key = addon:BuildSectionKey(JUNK, JUNK)
+			local section = container.sections and container.sections[key]
+			if section then
+				section.keepWhenEmpty = nil
+			end
+		end
+	end
+	self:SendMessage('AdiBags_LayoutChanged')
+end
+
+function mod:OnBagFrameCreated(bag)
+	if prefs.showEmptySection then
+		self:EnsureJunkDropTarget(bag:GetFrame())
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Ascension merchant Auto Sell Junk extension
+--------------------------------------------------------------------------------
+
+local function IsAscensionAutoSellChecked()
+	local check = _G.MerchantFrameSellJunkFrameAutoSellCheck
+	return check and check.GetChecked and check:GetChecked()
+end
+
+function mod:HookAscensionSellCheck()
+	local check = _G.MerchantFrameSellJunkFrameAutoSellCheck
+	if not check or check.__AdiBagsJunkHooked then return end
+	check:HookScript('OnClick', function()
+		if mod:IsEnabled() then
+			mod:ScheduleTimer('MaybeSellJunk', 0.1)
+		end
+	end)
+	check.__AdiBagsJunkHooked = true
+end
+
+function mod:MERCHANT_SHOW()
+	self:HookAscensionSellCheck()
+	self:ScheduleTimer('MaybeSellJunk', 0.2)
+end
+
+function mod:MERCHANT_CLOSED()
+	self:CancelAllTimers()
+end
+
+-- Drag-to-Junk sets a FilterOverride + include entry. Manual Include list
+-- entries have include only. Clear the drag mark after sell so buyback is
+-- normal; leave purposeful include-list items alone so they keep auto-selling.
+local function ClearJunkMark(itemId)
+	local filterOverride = addon:GetModule('FilterOverride', true)
+	if not filterOverride then return false end
+	local override = filterOverride.db.profile.overrides[itemId]
+	if not override then return false end
+	local section = override:match("^(.-)#") or override
+	if section ~= JUNK then return false end
+	filterOverride.db.profile.overrides[itemId] = nil
+	prefs.include[itemId] = nil
+	return true
+end
+
+function mod:MaybeSellJunk()
+	if not prefs.sellWithAscension then return end
+	if not IsAscensionAutoSellChecked() then return end
+	local merchant = _G.MerchantFrame
+	if not merchant or not merchant:IsShown() then return end
+
+	local cleared = false
+	for bag in pairs(addon.BAG_IDS.BAGS) do
+		if bag ~= KEYRING_CONTAINER then
+			for slot = 1, GetContainerNumSlots(bag) do
+				local itemId = GetContainerItemID(bag, slot)
+				if itemId and cache[itemId] then
+					local _, _, quality, _, _, _, _, _, _, _, vendorPrice = GetItemInfo(itemId)
+					-- Leave greys to Ascension; sell marked / non-poor junk only.
+					if quality and quality > ITEM_QUALITY_POOR and vendorPrice and vendorPrice > 0 then
+						UseContainerItem(bag, slot)
+						-- Drop one-shot junk marks so buyback/recover isn't auto-sold again.
+						if ClearJunkMark(itemId) then
+							cleared = true
+						end
+					end
+				end
+			end
+		end
+	end
+	if cleared then
+		wipe(cache)
+		self:SendMessage('AdiBags_FiltersChanged')
+		local acr = LibStub('AceConfigRegistry-3.0', true)
+		if acr then
+			acr:NotifyChange(addonName)
+		end
+	end
 end
 
 function mod:BaseCheckItem(itemId, force)
@@ -116,6 +263,7 @@ end
 
 function mod:Update()
 	wipe(cache)
+	self:EnsureAllJunkDropTargets()
 	self:SendMessage('AdiBags_FiltersChanged')
 	local acr = LibStub('AceConfigRegistry-3.0', true)
 	if acr then
@@ -155,12 +303,24 @@ function mod:GetOptions()
 			values = sourceList,
 			order = 10,
 		},
+		sellWithAscension = {
+			type = 'toggle',
+			name = L['Sell AdiBags Junk with Ascension auto-sell'],
+			desc = L['When Ascension\'s merchant Auto Sell Junk checkbox is enabled, also sell items AdiBags considers junk (including items dragged into the Junk section). Grey items remain handled by Ascension.'],
+			order = 20,
+		},
+		showEmptySection = {
+			type = 'toggle',
+			name = L['Show empty Junk section'],
+			desc = L['Keep the Junk section visible even when it has no items, so you can drag items onto it to mark them as junk.'],
+			order = 30,
+		},
 		include = {
 			type = 'multiselect',
 			dialogControl = 'ItemList',
 			name = L['Include list'],
 			desc = L['Items in this list are always considered as junk. Click an item to remove it from the list.'],
-			order = 20,
+			order = 40,
 			values = 'ListItems',
 			get = True,
 			set = 'SetItem',
@@ -170,7 +330,7 @@ function mod:GetOptions()
 			dialogControl = 'ItemList',
 			name = L['Exclude list'],
 			desc = L['Items in this list are never considered as junk. Click an item to remove it from the list.'],
-			order = 30,
+			order = 50,
 			values = 'ListItems',
 			get = True,
 			set = 'SetItem',
