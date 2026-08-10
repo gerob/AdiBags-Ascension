@@ -25,9 +25,10 @@ function mod:OnInitialize()
 			showGlow = true,
 			glowScale = 1.5,
 			glowColor = { 0.3, 1, 0.3, 0.7 },
-			ignoreJunk = false,			
-			glowColorRarity = false,			
-			qualityScale = 1,			
+			ignoreJunk = false,
+			glowColorRarity = false,
+			qualityScale = 1,
+			resetOnClose = false,
 		},
 	})
 	addon:SetCategoryOrder(L['New'], 100)
@@ -71,6 +72,7 @@ function mod:OnEnable()
 
 	self:RegisterMessage('AdiBags_PreFilter')
 	self:RegisterMessage('AdiBags_UpdateButton', 'UpdateButton')
+	self:RegisterMessage('AdiBags_BagClosed')
 
 	self:RegisterEvent('UNIT_INVENTORY_CHANGED')
 	self:RegisterEvent('BANKFRAME_OPENED')
@@ -189,7 +191,20 @@ function mod:GetOptions()
 			bigStep = 0.5,
 			order = 60,
 		},
+		resetOnClose = {
+			name = L['Reset new items on bag close'],
+			desc = L['Automatically clear "new" status when you close a bag.'],
+			type = 'toggle',
+			order = 70,
+		},
 	}, addon:GetOptionHandler(self)
+end
+
+function mod:AdiBags_BagClosed(_, bagName)
+	if not self.db.profile.resetOnClose then return end
+	if bags[bagName] then
+		self:Reset(bagName)
+	end
 end
 
 --------------------------------------------------------------------------------

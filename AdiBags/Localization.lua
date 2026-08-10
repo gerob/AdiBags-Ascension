@@ -223,12 +223,14 @@ L["Display character money at bottom right of the backpack."] = true
 L["Money"] = true
 
 -- modules/NewItemTracking.lua
+L["Automatically clear \"new\" status when you close a bag."] = true
 L["Click to reset item status."] = true
 L["Highlight color"] = true
 L["Highlight scale"] = true
 L["Ignore low quality items"] = true
 L["New item highlight"] = true
 L["New"] = true
+L["Reset new items on bag close"] = true
 L["Reset new items"] = true
 L["Track new items in each bag, displaying a glowing aura over them and putting them in a special section. \"New\" status can be reset by clicking on the small \"N\" button at top left of bags."] = true
 L["Track new items"] = true
