@@ -34,12 +34,18 @@ local function EnsureScanTip()
 	scanTip:SetOwner(UIParent, "ANCHOR_NONE")
 end
 
--- Returns true / false / nil (nil = tooltip not ready; do not cache).
+-- Returns true / false / nil (nil = not ready or error; do not cache).
 local function TooltipHasWorldforged(link)
 	if not link then return false end
 	EnsureScanTip()
-	scanTip:ClearLines()
-	scanTip:SetHyperlink(link)
+
+	local ok = pcall(function()
+		scanTip:ClearLines()
+		scanTip:SetHyperlink(link)
+	end)
+	if not ok then
+		return nil
+	end
 
 	local line1 = _G[SCAN_TIP_NAME .. "TextLeft1"]
 	local line1Text = line1 and line1:GetText()
@@ -66,7 +72,8 @@ local function IsWorldforged(itemId, link)
 	end
 
 	local item = GetItemInfoInstant(itemId)
-	if item and item.description and string.find(string.lower(item.description), "worldforged", 1, true) then
+	if item and item.description and type(item.description) == "string"
+		and string.find(string.lower(item.description), "worldforged", 1, true) then
 		worldforgedCache[itemId] = true
 		return true
 	end
@@ -97,15 +104,24 @@ function filter:OnDisable()
 end
 
 function filter:Filter(slotData)
+	-- Quality-6 Ascension/Vanity first so tooltip scanning cannot skip them.
+	if slotData.quality == 6 then
+		if VANITY_ITEMS and VANITY_ITEMS[slotData.itemId] and VANITY_ITEMS[slotData.itemId].itemid > 0 then
+			return "Ascension"
+		else
+			return "Vanity"
+		end
+	end
+
 	-- Worldforged (tooltip-tagged) — before Transmog so WF gear is not miscategorized.
 	if IsWorldforged(slotData.itemId, slotData.link) then
 		return "Worldforged", "Equipment"
 	end
 
-	-- Transmog items
+	-- Transmog / Mythic+ equipment
 	if (slotData.class == "Weapon" or slotData.class == "Armor") then
 		local item = GetItemInfoInstant(slotData.itemId)
-		if item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
+		if item and item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
 			return "Mythic+", 'Equipment'
 		end
 		if C_Appearance and slotData.subclass ~= "Thrown" and slotData.itemId ~= 5956 then
@@ -118,14 +134,13 @@ function filter:Filter(slotData)
 				end
 			end
 		end
-	-- Mythic+ items
 	else
 		local item = GetItemInfoInstant(slotData.itemId)
-		if item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
+		if item and item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
 			return "Mythic+", 'Equipment'
-		elseif item.description and item.inventoryType == 0 and (string.find(item.description, "This Token") or string.find(item.description, "This token")) then
+		elseif item and item.description and item.inventoryType == 0 and (string.find(item.description, "This Token") or string.find(item.description, "This token")) then
 			return "Tier Token", 'Equipment'
-		elseif item.description and string.find(item.description, "@re") then
+		elseif item and item.description and string.find(item.description, "@re") then
 			return "Mystic Enchants"
 		end
 	end
@@ -135,14 +150,6 @@ function filter:Filter(slotData)
 		slotData.itemId == 11130 or slotData.itemId == 6339 or slotData.itemId == 6218 or slotData.itemId == 23821 or slotData.itemId == 6954 or 
 		slotData.itemId == 9149 or slotData.itemId == 2901 or slotData.itemId == 7005 then
 		return "Tools", 'Trade Goods'
-	end
-	-- Vanity items
-	if slotData.quality == 6 then
-		if VANITY_ITEMS[slotData.itemId] and VANITY_ITEMS[slotData.itemId].itemid > 0 then
-			return "Ascension"
-		else
-			return "Vanity"
-		end
 	end
 end
 
