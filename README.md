@@ -2,7 +2,7 @@
 
 **AdiBags Ascension** is a fork of AdiBags for the Project Ascension 3.3.5 client. It keeps the filtered-section bag UI from Adirelle’s original addon (via the [WoTLK 3.3.5 backport](https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5)) and adds Ascension-specific bank, keyring, junk, and merchant behavior.
 
-**Version:** `3.3.5-ASC`  
+**Version:** `3.3.5-ASCa`  
 **Repository:** [gerob/AdiBags-Ascension](https://github.com/gerob/AdiBags-Ascension)
 
 ---
@@ -36,7 +36,7 @@ Interface\AddOns\
 
 **Common mistakes:**
 
-- Nesting an extra folder (e.g. `AddOns\AdiBags_Ascension-v3.3.5-ASC\AdiBags\…`) — Ascension will not load it.
+- Nesting an extra folder (e.g. `AddOns\AdiBags_Ascension-v3.3.5-ASCa\AdiBags\…`) — Ascension will not load it.
 - Renaming folders or only copying the outer ZIP folder.
 - Leaving an older `AdiBags` folder next to a new one with a different name.
 
