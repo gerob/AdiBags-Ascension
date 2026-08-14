@@ -2,7 +2,7 @@
 
 **AdiBags Ascension** is a fork of AdiBags for the Project Ascension 3.3.5 client. It keeps the filtered-section bag UI from Adirelle’s original addon (via the [WoTLK 3.3.5 backport](https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5)) and adds Ascension-specific bank, keyring, junk, and merchant behavior.
 
-**Version:** `3.3.5-ASCa`  
+**Version:** `3.3.5-ASCb`  
 **Repository:** [gerob/AdiBags-Ascension](https://github.com/gerob/AdiBags-Ascension)
 
 ---
@@ -17,10 +17,12 @@ Get the latest release ZIP from [Releases](https://github.com/gerob/AdiBags-Asce
 
 Extract the ZIP. You should see **two** addon folders. Copy both into your Ascension `Interface\AddOns` directory, keeping the folder names exactly as they are:
 
-| Folder | Required? | Purpose |
-| --- | --- | --- |
-| `AdiBags` | Yes | Core bag addon |
+
+| Folder              | Required?   | Purpose                         |
+| ------------------- | ----------- | ------------------------------- |
+| `AdiBags`           | Yes         | Core bag addon                  |
 | `AdiBags_Ascension` | Recommended | Ascension-specific item filters |
+
 
 Typical path:
 
@@ -40,6 +42,8 @@ Interface\AddOns\
 - Renaming folders or only copying the outer ZIP folder.
 - Leaving an older `AdiBags` folder next to a new one with a different name.
 
+
+
 ### 3. Restart the client
 
 Fully quit and restart Ascension (a UI reload alone is not enough for a first install).
@@ -47,22 +51,28 @@ Fully quit and restart Ascension (a UI reload alone is not enough for a first in
 ### 4. Confirm it loaded
 
 1. At the character select screen (or in-game), open the addon list and ensure **AdiBags** (and **AdiBags - Ascension support** if installed) are enabled.
-2. Log in and open your bags, or run `/adibags` / `/ab` to open configuration.
+2. Log in and open your bags, or run `/adibags` / `/adi` to open configuration.
 
 ---
+
+
 
 ## Usage
 
-| Action | What it does |
-| --- | --- |
-| `/adibags` or `/ab` | Open the AdiBags configuration panel |
-| Left-click the bag icon (top-left) | Manage equipped bags / keyring |
-| Drag an item onto a section header | Assign that item to that section (Manual Filtering) |
-| Drag an item onto **Junk** | Mark it as junk (for sorting and Ascension auto-sell) |
 
-Enable or configure modules under **Filters** and **Modules** in the `/ab` options.
+| Action                             | What it does                                          |
+| ---------------------------------- | ----------------------------------------------------- |
+| `/adibags` or `/adi`               | Open the AdiBags configuration panel                  |
+| Left-click the bag icon (top-left) | Manage equipped bags / keyring                        |
+| Drag an item onto a section header | Assign that item to that section (Manual Filtering)   |
+| Drag an item onto **Junk**         | Mark it as junk (for sorting and Ascension auto-sell) |
+
+
+Enable or configure modules under **Filters** and **Modules** in the `/adi` options.
 
 ---
+
+
 
 ## Ascension features
 
@@ -79,11 +89,15 @@ See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the current release summary.
 
 ---
 
+
+
 ## Optional dependencies
 
 AdiBags works alone. Optional integrations include **Masque**, **Scrap**, **BrainDead**, **LibSharedMedia-3.0**, and ElvUI skins.
 
 ---
+
+
 
 ## Credits
 
@@ -91,7 +105,10 @@ AdiBags works alone. Optional integrations include **Masque**, **Scrap**, **Brai
 - [Sattva-108/AdiBags-WoTLK-3.3.5](https://github.com/Sattva-108/AdiBags-WoTLK-3.3.5) — 3.3.5 backport this fork builds on
 - Ascension filter plugin authors (AdiBags_Ascension)
 
+
+
 ## Support & issues
 
 - Releases and downloads: [github.com/gerob/AdiBags-Ascension/releases](https://github.com/gerob/AdiBags-Ascension/releases)
 - Bugs and requests: [Issues](https://github.com/gerob/AdiBags-Ascension/issues)
+

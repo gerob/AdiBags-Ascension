@@ -656,12 +656,11 @@ function addon:InitializeOptions()
 
 	AceConfig:RegisterOptionsTable(addonName, function() return self:GetOptions() end)
 
-	LibStub('AceConsole-3.0'):RegisterChatCommand("ab", function(cmd)
+	local openOptions = function(cmd)
 		addon:OpenOptions(strsplit(' ', cmd or ""))
-	end, true)
-	LibStub('AceConsole-3.0'):RegisterChatCommand("adibags", function(cmd)
-		addon:OpenOptions(strsplit(' ', cmd or ""))
-	end, true)
+	end
+	LibStub('AceConsole-3.0'):RegisterChatCommand("adi", openOptions, true)
+	LibStub('AceConsole-3.0'):RegisterChatCommand("adibags", openOptions, true)
 end
 
 -- Open Options Function with ability to open certain tab. Usage: addon:OpenOptions("module name") or ("module name", "submodule name")
