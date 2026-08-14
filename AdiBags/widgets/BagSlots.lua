@@ -54,6 +54,7 @@ local StaticPopup_Show = _G.StaticPopup_Show
 local strjoin = _G.strjoin
 local tinsert = _G.tinsert
 local tsort = _G.table.sort
+local UIErrorsFrame = _G.UIErrorsFrame
 local unpack = _G.unpack
 local wipe = _G.wipe
 --GLOBALS>
@@ -73,47 +74,99 @@ do
 	local otherBags = {}
 	local locked = {}
 	local timeout = 0
+	local pendingStart = false
 	local currentBag, currentSlot, numSlots
 
-	function swapFrame:Done()
+	function swapFrame:Done(incomplete)
+		local bag = currentBag
 		self:UnregisterAllEvents()
 		self:Hide()
+		pendingStart = false
 		currentBag = nil
 		wipe(locked)
 		addon:SetGlobalLock(false)
+		if incomplete and bag then
+			UIErrorsFrame:AddMessage(L["Not enough room to empty that bag."], 1.0, 0.1, 0.1)
+		end
 	end
 
-	local function FindSlotForItem(bags, itemId, itemCount)
+	local function ContainerAcceptsFamily(bag, itemFamily)
+		if bag == KEYRING_CONTAINER or GetContainerNumSlots(bag) == 0 then
+			return false, 0
+		end
+		local _, containerFamily = GetContainerNumFreeSlots(bag)
+		containerFamily = containerFamily or 0
+		return containerFamily == 0 or band(itemFamily or 0, containerFamily) ~= 0, containerFamily
+	end
+
+	local function GetSlotState(bag, slot, snap)
+		if snap then
+			local cell = snap[bag] and snap[bag][slot]
+			if cell then
+				return cell.id, cell.count or 0, cell.locked
+			end
+			return nil, 0, false
+		end
+		local _, count, isLocked = GetContainerItemInfo(bag, slot)
+		return GetContainerItemID(bag, slot), count or 0, isLocked
+	end
+
+	local function FindSlotForItem(bags, itemId, itemCount, snap)
 		local itemFamily = addon.GetItemFamily(itemId)
 		local maxStack = select(8, GetItemInfo(itemId)) or 1
 		addon:Debug('FindSlotForItem', itemId, GetItemInfo(itemId), 'count=', itemCount, 'maxStack=', maxStack, 'family=', itemFamily, 'bags:', unpack(bags))
 		local bestBag, bestSlot, bestScore
-		for i, bag in pairs(bags) do
-			local scoreBonus = band(select(2, GetContainerNumFreeSlots(bag)) or 0, itemFamily) ~= 0 and maxStack or 0
-			for slot = 1, GetContainerNumSlots(bag) do
-				local texture, slotCount, locked = GetContainerItemInfo(bag, slot)
-				if not locked and (not texture or GetContainerItemID(bag, slot) == itemId) then
-					slotCount = slotCount or 0
-					if slotCount + itemCount <= maxStack then
-						local slotScore = slotCount + scoreBonus
-						if not bestScore or slotScore > bestScore then
-							addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, 'score=', slotScore, 'NEW BEST SLOT')
-							bestBag, bestSlot, bestScore = bag, slot, slotScore
-						--[===[@debug@
-						else
-							addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, 'score=', slotScore, '<', bestScore)
-						--@end-debug@]===]
+		for _, bag in ipairs(bags) do
+			local accepts, containerFamily = ContainerAcceptsFamily(bag, itemFamily)
+			if accepts then
+				local scoreBonus = containerFamily ~= 0 and maxStack or 0
+				for slot = 1, GetContainerNumSlots(bag) do
+					local slotId, slotCount, isLocked = GetSlotState(bag, slot, snap)
+					if not isLocked and (not slotId or slotId == itemId) then
+						slotCount = slotCount or 0
+						if slotCount + itemCount <= maxStack then
+							local slotScore = slotCount + scoreBonus
+							if not bestScore or slotScore > bestScore then
+								addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, 'score=', slotScore, 'NEW BEST SLOT')
+								bestBag, bestSlot, bestScore = bag, slot, slotScore
+							end
 						end
-					--[===[@debug@
-					else
-						addon:Debug('FindSlotForItem', bag, slot, 'slotCount=', slotCount, ': not enough space')
-					--@end-debug@]===]
 					end
 				end
 			end
 		end
 		addon:Debug('FindSlotForItem =>', bestBag, bestSlot)
 		return bestBag, bestSlot
+	end
+
+	local function CanFullyEmpty(bag, destBags)
+		local snap = {}
+		for _, destBag in ipairs(destBags) do
+			local bagSnap = {}
+			snap[destBag] = bagSnap
+			for slot = 1, GetContainerNumSlots(destBag) do
+				local slotId, count, isLocked = GetSlotState(destBag, slot)
+				bagSnap[slot] = { id = slotId, count = count, locked = isLocked }
+			end
+		end
+		for slot = 1, GetContainerNumSlots(bag) do
+			local itemId = GetContainerItemID(bag, slot)
+			if itemId then
+				local _, count = GetContainerItemInfo(bag, slot)
+				local destBag, destSlot = FindSlotForItem(destBags, itemId, count or 1, snap)
+				if not destBag then
+					return false
+				end
+				local cell = snap[destBag][destSlot]
+				cell.id = itemId
+				cell.count = (cell.count or 0) + (count or 1)
+			end
+		end
+		return true
+	end
+
+	local function ReportCannotEmpty()
+		UIErrorsFrame:AddMessage(L["Not enough room to empty that bag."], 1.0, 0.1, 0.1)
 	end
 
 	function swapFrame:ProcessInner()
@@ -123,18 +176,23 @@ do
 				local itemId = GetContainerItemID(currentBag, currentSlot)
 				if itemId then
 					local _, count = select(2, GetContainerItemInfo(currentBag, currentSlot))
+					local destBag, destSlot = FindSlotForItem(otherBags, itemId, count or 1)
+					if not destBag then
+						ClearCursor()
+						self:Done(true)
+						return
+					end
 					PickupContainerItem(currentBag, currentSlot)
 					if CursorHasItem() then
 						locked[currentBag] = true
-						local destBag, destSlot = FindSlotForItem(otherBags, itemId, count or 1)
-						if destBag and destSlot then
-							PickupContainerItem(destBag, destSlot)
-							if not CursorHasItem() then
-								locked[destBag] = true
-								return
-							end
+						PickupContainerItem(destBag, destSlot)
+						if not CursorHasItem() then
+							locked[destBag] = true
+							return
 						end
-						break
+						ClearCursor()
+						self:Done(true)
+						return
 					end
 				end
 			end
@@ -156,6 +214,11 @@ do
 
 	swapFrame:Hide()
 	swapFrame:SetScript('OnUpdate', function(self, elapsed)
+		if pendingStart then
+			pendingStart = false
+			self:Process()
+			return
+		end
 		if elapsed > timeout then
 			self:Done()
 		else
@@ -183,18 +246,22 @@ do
 		wipe(otherBags)
 		local bags = addon.BAG_IDS.BANK[bag] and addon.BAG_IDS.BANK or addon.BAG_IDS.BAGS
 		for otherBag in pairs(bags) do
-			if otherBag ~= bag then
+			if otherBag ~= bag and otherBag ~= KEYRING_CONTAINER and GetContainerNumSlots(otherBag) > 0 then
 				tinsert(otherBags, otherBag)
 			end
 		end
-		if #otherBags > 0 then
-			tsort(otherBags)
-			currentBag, currentSlot, numSlots = bag, 0, GetContainerNumSlots(bag)
-			addon:SetGlobalLock(true)
-			swapFrame:RegisterEvent('PLAYERBANKSLOTS_CHANGED')
-			swapFrame:RegisterEvent('BAG_UPDATE')
-			swapFrame:Process()
+		tsort(otherBags)
+		if #otherBags == 0 or not CanFullyEmpty(bag, otherBags) then
+			ReportCannotEmpty()
+			return
 		end
+		currentBag, currentSlot, numSlots = bag, 0, GetContainerNumSlots(bag)
+		addon:SetGlobalLock(true)
+		swapFrame:RegisterEvent('PLAYERBANKSLOTS_CHANGED')
+		swapFrame:RegisterEvent('BAG_UPDATE')
+		pendingStart = true
+		timeout = 2
+		swapFrame:Show()
 	end
 end
 
@@ -220,7 +287,7 @@ function bagButtonProto:OnCreate(bag)
 	self:SetScript('OnEnter', self.OnEnter)
 	self:SetScript('OnLeave', self.OnLeave)
 	self:SetScript('OnDragStart', self.OnDragStart)
-	self:SetScript('OnReceiveDrag', self.OnClick)
+	self:SetScript('OnReceiveDrag', self.OnReceiveDrag)
 	self:SetScript('OnClick', self.OnClick)
 	self.UpdateTooltip = self.OnEnter
 
@@ -296,16 +363,29 @@ end
 local pendingUpdate = {}
 
 function bagButtonProto:OnClick(button)
+	if addon.globalLock then
+		return
+	end
 	if self.hasItem and button == "RightButton" then
 		if not self.isEmpty then
 			EmptyBag(self.bag)
 		end
-	else
-		if not PutItemInBag(self.invSlot) and self.hasItem then
-			PickupBagFromSlot(self.invSlot)
-		end
-		pendingUpdate[self.invSlot] = true
+		return
 	end
+	if not PutItemInBag(self.invSlot) and self.hasItem then
+		PickupBagFromSlot(self.invSlot)
+	end
+	pendingUpdate[self.invSlot] = true
+end
+
+function bagButtonProto:OnReceiveDrag()
+	if addon.globalLock then
+		return
+	end
+	if not PutItemInBag(self.invSlot) and self.hasItem then
+		PickupBagFromSlot(self.invSlot)
+	end
+	pendingUpdate[self.invSlot] = true
 end
 
 function bagButtonProto:OnDragStart()

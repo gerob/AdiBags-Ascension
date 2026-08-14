@@ -287,6 +287,7 @@ L["When shift is held down"] = true
 L["Click to purchase"] = true
 L["Equipped bags"] = true
 L["Right-click to try to empty this bag."] = true
+L["Not enough room to empty that bag."] = true
 
 -- widgets/Config-ItemList.lua
 L["Click or drag this item to remove it."] = true
