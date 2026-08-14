@@ -1,6 +1,12 @@
-# AdiBags Ascension 3.3.5-ASCa
+# AdiBags Ascension 3.3.5-ASCb
 
 Ascension-focused fork of AdiBags for Project Ascension (3.3.5 client).
+
+## Changes in 3.3.5-ASCb
+
+- **Empty equipped bag** — Right-click an equipped bag slot to empty it so you can swap in a larger bag. Items are no longer dumped into the keyring, and a pickup no longer tries to equip a non-bag item. If there is not enough room, you get `Not enough room to empty that bag.`
+- **Options slash `/adi`** — `/ab` is no longer registered; Ascension UI tools keep that name even when disabled. Use `/adi` or `/adibags`.
+- **Currency display** — Tokens checked under Plugins → Currency show again at the bottom left of the backpack (gold stays bottom right).
 
 ## Features
 
@@ -20,8 +26,9 @@ Ascension-focused fork of AdiBags for Project Ascension (3.3.5 client).
 
 ## Compatibility
 
-- ElvUI / Masque: bag slot toggle created for personal bank (hidden) so skins expecting that widget do not error.
-- Optional Scrap / BrainDead junk sources for detection only.
+- **ElvUI AddOnSkins** — Personal bank still creates the equipped-bag toggle (then hides it) so ElvUI-WotLK skins that index `HeaderLeftRegion.widgets[1]` do not error. This is a nil-guard, not a full ElvUI restyle.
+- **Masque** — If Masque is loaded, backpack, bank, and guild-bank item buttons register in Masque groups. Marked experimental in the 3.3.5 backport; not in-game tested on Ascension.
+- **Scrap / BrainDead** — If either addon is present at load, AdiBags can use their junk lists as extra *detection* sources (sorting and sell-with-Ascension). AdiBags does not run those addons’ sell UIs.
 
 ## Install
 
