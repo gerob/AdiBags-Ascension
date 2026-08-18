@@ -986,18 +986,63 @@ do
 		return L["PersonalBank"]
 	end
 
+	-- Keep frame shown for the bank session, but invisible.
+	-- Calling Hide() fires GUILDBANKFRAME_CLOSED and tears the session down.
+	-- Ascension/UIParent often SetPoint/SetAlpha after our first stash; re-apply.
+	local inStash
+	local restoringGuildBank
+	local parkedUIPanel
+
+	local function ParkGuildBankUIPanel()
+		local windows = _G.UIPanelWindows
+		if windows and windows.GuildBankFrame then
+			parkedUIPanel = parkedUIPanel or windows.GuildBankFrame
+			windows.GuildBankFrame = nil
+		end
+	end
+
+	local function UnparkGuildBankUIPanel()
+		if parkedUIPanel and _G.UIPanelWindows then
+			_G.UIPanelWindows.GuildBankFrame = parkedUIPanel
+			parkedUIPanel = nil
+		end
+	end
+
 	local function StashStockGuildBankFrame(frame)
-		-- Keep frame shown for the bank session, but invisible.
-		-- Calling Hide() fires GUILDBANKFRAME_CLOSED and tears the session down.
+		if not frame or inStash then return end
+		inStash = true
+		ParkGuildBankUIPanel()
 		frame:SetAlpha(0)
 		frame:EnableMouse(false)
 		frame:ClearAllPoints()
 		frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", -10000, -10000)
+		inStash = false
 	end
 
 	local function RestoreStockGuildBankFrame(frame)
-		frame:SetAlpha(1)
-		frame:EnableMouse(true)
+		restoringGuildBank = true
+		UnparkGuildBankUIPanel()
+		if frame then
+			frame:SetAlpha(1)
+			frame:EnableMouse(true)
+		end
+		restoringGuildBank = false
+	end
+
+	local function KeepStashed()
+		if not personalBank.sessionOpen then return end
+		local frame = _G.GuildBankFrame
+		if frame then
+			StashStockGuildBankFrame(frame)
+		end
+	end
+
+	local function ScheduleRestash()
+		KeepStashed()
+		if LibCompat and LibCompat.After then
+			LibCompat.After(0, KeepStashed)
+			LibCompat.After(0.1, KeepStashed)
+		end
 	end
 
 	-- Report the bank session as shown while open so Ascension/Blizzard tab
@@ -1015,13 +1060,16 @@ do
 		self:RawHook(frame, "Show", "OnGuildBankFrameShow", true)
 		self:RawHook(frame, "Hide", "OnGuildBankFrameHide", true)
 		self:RawHook(frame, "IsShown", "IsGuildBankFrameShown", true)
+		pcall(self.RawHook, self, frame, "SetPoint", "OnGuildBankFrameSetPoint", true)
+		pcall(self.RawHook, self, frame, "SetAlpha", "OnGuildBankFrameSetAlpha", true)
 		self.guildBankHooked = true
 
 		if alreadyShown then
 			self.sessionOpen = true
-			StashStockGuildBankFrame(frame)
+			ScheduleRestash()
 			self:Open()
 		elseif self.sessionOpen or addon:GetInteractingWindow() == "GUILDBANKFRAME" then
+			ScheduleRestash()
 			self:Open()
 		end
 	end
@@ -1039,6 +1087,7 @@ do
 
 		if addon:GetInteractingWindow() == "GUILDBANKFRAME" then
 			self.sessionOpen = true
+			ScheduleRestash()
 			self:Open()
 		end
 	end
@@ -1053,6 +1102,7 @@ do
 		self.sessionOpen = true
 		addon:DetectGuildBankKind()
 		self:HookGuildBankFrame()
+		ScheduleRestash()
 		self:Open()
 		if self.frame and self.frame.UpdateGuildBankTitle then
 			self.frame:UpdateGuildBankTitle()
@@ -1063,6 +1113,7 @@ do
 		if self.stashingGuildBank then return end
 		self.sessionOpen = false
 		addon.guildBankKind = addon.GUILD_BANK_KIND_PERSONAL
+		RestoreStockGuildBankFrame(_G.GuildBankFrame)
 		if self:IsOpen() and self.frame and self.frame:IsShown() then
 			self.closingGuildBank = true
 			self.frame:Hide()
@@ -1089,12 +1140,26 @@ do
 		addon:DetectGuildBankKind()
 		self.stashingGuildBank = true
 		self.hooks[frame].Show(frame)
-		StashStockGuildBankFrame(frame)
 		self.stashingGuildBank = false
+		ScheduleRestash()
 		self:Open()
 		if self.frame and self.frame.UpdateGuildBankTitle then
 			self.frame:UpdateGuildBankTitle()
 		end
+	end
+
+	function personalBank:OnGuildBankFrameSetPoint(frame, ...)
+		if inStash or restoringGuildBank or not self.sessionOpen then
+			return self.hooks[frame].SetPoint(frame, ...)
+		end
+		StashStockGuildBankFrame(frame)
+	end
+
+	function personalBank:OnGuildBankFrameSetAlpha(frame, alpha)
+		if inStash or restoringGuildBank or not self.sessionOpen then
+			return self.hooks[frame].SetAlpha(frame, alpha)
+		end
+		StashStockGuildBankFrame(frame)
 	end
 
 	function personalBank:OnGuildBankFrameHide(frame)
@@ -1121,6 +1186,7 @@ do
 		if self.stashingGuildBank then return end
 		if new == 'GUILDBANKFRAME' and not self:IsOpen() then
 			self.sessionOpen = true
+			ScheduleRestash()
 			self:Open()
 		elseif old == 'GUILDBANKFRAME' and self:IsOpen() then
 			self:Close()
@@ -1152,6 +1218,9 @@ do
 	end
 
 	function personalBank:GuildBankTabsChanged()
+		if self.sessionOpen then
+			KeepStashed()
+		end
 		if self:IsOpen() then
 			addon:DetectGuildBankKind()
 			if self.frame then
