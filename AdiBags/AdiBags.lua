@@ -1225,10 +1225,23 @@ local function AnchoredBagLayout(self)
 		local fromPoint = vPart..hFrom
 		local toPoint = vPart..hTo
 
+		local function RightTabExtra(bagFrame)
+			local bar = bagFrame.PersonalBankTabBar
+			if bar and bar:IsShown() then
+				return (bar:GetWidth() or 36) + 8
+			end
+			return 0
+		end
+
 		for i = 2, #open do
 			local nextFrame = open[i]:GetFrame()
 			nextFrame:ClearAllPoints()
-			nextFrame:SetPoint(fromPoint, lastFrame, toPoint, x / nextFrame:GetScale(), 0)
+			local extra = (x < 0) and RightTabExtra(nextFrame) or RightTabExtra(lastFrame)
+			local dx = x
+			if extra > 0 then
+				dx = (x < 0) and (x - extra) or (x + extra)
+			end
+			nextFrame:SetPoint(fromPoint, lastFrame, toPoint, dx / nextFrame:GetScale(), 0)
 			lastFrame = nextFrame
 		end
 	end

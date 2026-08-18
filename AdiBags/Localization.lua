@@ -68,6 +68,22 @@ L["Drop an item to put it in the keyring."] = true
 L["PersonalBank"] = "Personal Bank"
 L["GuildBank"] = "Guild Bank"
 L["RealmBank"] = "Realm Bank"
+L["Log"] = true
+L["Money Log"] = true
+L["Info"] = true
+L["Deposit"] = true
+L["Withdraw"] = true
+L["Save"] = true
+L["Available Amount:"] = true
+L["Unlimited"] = true
+L["Full Access"] = true
+L["Remaining Daily Withdrawals for %s: %s"] = true
+L["%s Log"] = true
+L["%s Info"] = true
+L["Tab %d"] = true
+L["%d Stacks"] = true
+L["Guild bank"] = true
+L["Show gold, logs, and info tabs on the guild bank."] = true
 
 -- DefaultFilters.lua
 L["Ammunition"] = true
