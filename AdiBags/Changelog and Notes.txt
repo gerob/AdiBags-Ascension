@@ -1,3 +1,15 @@
+Changelog 18 Aug 2026 3.3.5-ASCc
+- New module AdiBags/modules/GuildBankChrome.lua (TOC + locales). Guild-kind only.
+  - Footer: GetGuildBankTabInfo remainingWithdrawals; SmallMoneyFrame GUILDBANK + STATIC withdraw limit;
+    StaticPopup GUILDBANK_DEPOSIT / GUILDBANK_WITHDRAW; CanWithdrawGuildBankMoney.
+  - Views replace Content overlay: QueryGuildBankLog(tab) / QueryGuildBankLog(MAX_GUILDBANK_TABS+1) /
+    QueryGuildBankText; GetGuildBankTransaction / GetGuildBankMoneyTransaction / GetGuildBankText.
+  - Money Log SetDesaturation + Disable on PersonalBankTabBar; Log/Info re-query on OnPersonalBankTabClick.
+- AnchoredBagLayout: extra dx = PersonalBankTabBar:GetWidth()+8 when tab strip would sit in the neighbor gap.
+- GuildBankFrame stash race: StashStockGuildBankFrame guarded; re-stash on Show/Opened/GUILDBANK_UPDATE_TABS
+  plus LibCompat.After(0) and After(0.1); RawHook SetPoint/SetAlpha while sessionOpen;
+  UIPanelWindows.GuildBankFrame parked for the session (never Hide() while open).
+
 Changelog by Sattva 4th June 2023 #9;
 - Added Experimental Masque support!
 
