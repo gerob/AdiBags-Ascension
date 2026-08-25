@@ -39,53 +39,62 @@ function filter:OnDisable()
 	addon:UpdateFilters()
 end
 
+-- Profession tools (blacksmith hammer, mining pick, runed rods, etc.)
+local TOOLS = {
+	[5956] = true, [6219] = true, [20824] = true, [20815] = true, [10498] = true,
+	[22463] = true, [22462] = true, [22461] = true, [16207] = true, [11145] = true,
+	[11130] = true, [6339] = true, [6218] = true, [23821] = true, [6954] = true,
+	[9149] = true, [2901] = true, [7005] = true,
+}
+
+-- GetItemMythicLevel may return "10@" instead of 10.
+local function MythicLevel(itemId)
+	if not GetItemMythicLevel then return 0 end
+	return tonumber(tostring(GetItemMythicLevel(itemId)):match("%d+")) or 0
+end
+
 function filter:Filter(slotData)
-		-- Trade Goods equipment
-	if slotData.itemId == 5956 or slotData.itemId == 6219 or slotData.itemId == 20824 or slotData.itemId == 20815 or slotData.itemId == 10498 or
-		slotData.itemId == 22463 or slotData.itemId == 22462 or slotData.itemId == 22461 or slotData.itemId == 16207 or slotData.itemId == 11145 or
-		slotData.itemId == 11130 or slotData.itemId == 6339 or slotData.itemId == 6218 or slotData.itemId == 23821 or slotData.itemId == 6954 or 
-		slotData.itemId == 9149 or slotData.itemId == 2901 or slotData.itemId == 7005 then
-		return "Tools", 'Trade Goods'
-	end
-	-- Quality-6 Ascension/Vanity first so tooltip scanning cannot skip them.
-	if slotData.quality == 6 then
-		if VANITY_ITEMS and VANITY_ITEMS[slotData.itemId] and VANITY_ITEMS[slotData.itemId].itemid > 0 then
-			return "Ascension"
-		else
-			return "Vanity"
-		end
+	local itemId = slotData.itemId
+	if not itemId then return end
+
+	if TOOLS[itemId] then
+		return "Tools", "Trade Goods"
 	end
 
-	-- Transmog / Mythic+ equipment
-	if (slotData.class == "Weapon" or slotData.class == "Armor") then
-		-- Worldforged (tooltip-tagged) — before Transmog so WF gear is not miscategorized.
-		if GetItemFlavorText(slotData.itemId) and string.find(GetItemFlavorText(slotData.itemId), "@Worldforged") then
-			return "Worldforged", "Equipment"
-		end		
-		local mythicLevel = tonumber(tostring(GetItemMythicLevel(slotData.itemId)):match("%d+")) or 0-- Tempfix for GetItemMythicLevel also returning the "10@" in "@Mythic 10@"
-		if mythicLevel > 0 then-- GetItemMythicLevel(slotData.itemId) and GetItemMythicLevel(slotData.itemId) > 0 then
-			return "Mythic+", 'Equipment'
+	if slotData.quality == 6 then
+		if VANITY_ITEMS and VANITY_ITEMS[itemId] and VANITY_ITEMS[itemId].itemid > 0 then
+			return "Ascension"
 		end
-		if C_Appearance and slotData.subclass ~= "Thrown" and slotData.itemId ~= 5956 then
-			local appearanceID = C_Appearance.GetItemAppearanceID(slotData.itemId)
-			if appearanceID then
-				local isCollected = C_AppearanceCollection.IsAppearanceCollected(appearanceID)
-				if not isCollected then
-					Owned = 3
-					return "Transmog", 'Equipment'
-				end
+		return "Vanity"
+	end
+
+	local flavor = GetItemFlavorText and GetItemFlavorText(itemId)
+	local isGear = slotData.class == "Weapon" or slotData.class == "Armor"
+
+	if isGear then
+		if flavor and string.find(flavor, "@Worldforged", 1, true) then
+			return "Worldforged", "Equipment"
+		end
+		if MythicLevel(itemId) > 0 then
+			return "Mythic+", "Equipment"
+		end
+		if C_Appearance and slotData.subclass ~= "Thrown" then
+			local appearanceID = C_Appearance.GetItemAppearanceID(itemId)
+			if appearanceID and C_AppearanceCollection and not C_AppearanceCollection.IsAppearanceCollected(appearanceID) then
+				return "Transmog", "Equipment"
 			end
 		end
-	-- Mythic+ items
 	else
-		local mythicLevel = tonumber(tostring(GetItemMythicLevel(slotData.itemId)):match("%d+")) or 0-- Tempfix for GetItemMythicLevel also returning the "10@" in "@Mythic 10@"
-		local flavor = GetItemFlavorText(slotData.itemId)
-		if mythicLevel > 0 then-- GetItemMythicLevel(slotData.itemId) and GetItemMythicLevel(slotData.itemId) > 0 then
-			return "Mythic+", 'Equipment'
-		elseif flavor and string.find(flavor, "This Token") then
-			return "Tier Token", 'Equipment'
-		elseif flavor and string.find(flavor, "@re") then
-			return "Mystic Enchants"
+		if MythicLevel(itemId) > 0 then
+			return "Mythic+", "Equipment"
+		end
+		if flavor then
+			if string.find(flavor, "This Token", 1, true) then
+				return "Tier Token", "Equipment"
+			end
+			if string.find(flavor, "@re", 1, true) then
+				return "Mystic Enchants"
+			end
 		end
 	end
 end

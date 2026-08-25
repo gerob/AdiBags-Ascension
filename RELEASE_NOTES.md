@@ -22,7 +22,7 @@ Ascension-focused fork of AdiBags for Project Ascension (3.3.5 client).
 - **Keyring support** — Keyring bag slot, hide-keyring character setting, and safer updates when the keyring is hidden.
 - **Personal / Guild / Realm bank** — Bank type detection, session-safe guild bank tab handling, and layout/anchor fixes for personal bank.
 - **Stack split** — Shift+left-click stack split for backpack, bank, and guild/personal bank without breaking modifier clicks (links, tradeskill use).
-- **Worldforged section** — Tooltip-tagged Worldforged items are sorted into their own Equipment section.
+- **Worldforged section** — Items with `@Worldforged` flavor text are sorted into their own Equipment section.
 
 ## Changes in 3.3.5-ASCb
 
