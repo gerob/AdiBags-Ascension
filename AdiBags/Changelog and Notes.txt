@@ -1,3 +1,9 @@
+Changelog 25 Aug 2026 3.3.5-ASCd
+- AdiBags_Ascension filter: tool ID set, one GetItemFlavorText per item, MythicLevel helper,
+  nil-safe Worldforged/token/mystic checks; removed leftover Owned global.
+- ContainerFrame bag-title hover (AdiBagsBagMenu / manual anchor) uses bag strata/level
+  instead of DIALOG+100 so Split Stack Okay/Cancel stay clickable.
+
 Changelog 18 Aug 2026 3.3.5-ASCc
 - New module AdiBags/modules/GuildBankChrome.lua (TOC + locales). Guild-kind only.
   - Footer: GetGuildBankTabInfo remainingWithdrawals; SmallMoneyFrame GUILDBANK + STATIC withdraw limit;

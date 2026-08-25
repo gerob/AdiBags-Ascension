@@ -1,6 +1,13 @@
-# AdiBags Ascension 3.3.5-ASCc
+# AdiBags Ascension 3.3.5-ASCd
 
 Ascension-focused fork of AdiBags for Project Ascension (3.3.5 client).
+
+## Changes in 3.3.5-ASCd
+
+- **Ascension filter** — Profession tools use an ID set. Flavor text is read once per item. Worldforged, tier tokens, and mystic enchants use `GetItemFlavorText` (no tooltip scan). Mythic+ uses `GetItemMythicLevel` (including values like `"10@"`). Nil-safe checks; leftover global `Owned` removed.
+- **Bag title hover** — Backpack and manual-anchor highlights stay on the bag frame so they no longer cover Split Stack Okay/Cancel.
+
+No new files. `/reload` is enough.
 
 ## Changes in 3.3.5-ASCc
 

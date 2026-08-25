@@ -2,8 +2,8 @@
 ## Title: AdiBags - Ascension support
 ## Notes: Adds Ascension specific item filters to AdiBags.
 ## Author: Szyler
-## Version: v1.0
-## X-Date: 2024-06-29T12:00:00Z
+## Version: v1.1
+## X-Date: 2026-08-25T12:00:00Z
 
 ## Dependencies: AdiBags
 
