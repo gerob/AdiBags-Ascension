@@ -24,68 +24,6 @@ local filter = addon:RegisterFilter("Ascension", 95, 'AceEvent-3.0')
 filter.uiName = L['uiName']
 filter.uiDesc = L['UiDesc']
 
-local SCAN_TIP_NAME = "AdiBagsAscensionScanTip"
-local scanTip
-local worldforgedCache = {}
-
-local function EnsureScanTip()
-	if scanTip then return end
-	scanTip = CreateFrame("GameTooltip", SCAN_TIP_NAME, nil, "GameTooltipTemplate")
-	scanTip:SetOwner(UIParent, "ANCHOR_NONE")
-end
-
--- Returns true / false / nil (nil = not ready or error; do not cache).
-local function TooltipHasWorldforged(link)
-	if not link then return false end
-	EnsureScanTip()
-
-	local ok = pcall(function()
-		scanTip:ClearLines()
-		scanTip:SetHyperlink(link)
-	end)
-	if not ok then
-		return nil
-	end
-
-	local line1 = _G[SCAN_TIP_NAME .. "TextLeft1"]
-	local line1Text = line1 and line1:GetText()
-	if line1Text == "Retrieving item information..." then
-		return nil
-	end
-
-	local numLines = scanTip:NumLines() or 0
-	for i = 1, numLines do
-		local fs = _G[SCAN_TIP_NAME .. "TextLeft" .. i]
-		local text = fs and fs:GetText()
-		if text and string.find(string.lower(text), "worldforged", 1, true) then
-			return true
-		end
-	end
-	return false
-end
-
-local function IsWorldforged(itemId, link)
-	if not itemId then return false end
-	local cached = worldforgedCache[itemId]
-	if cached ~= nil then
-		return cached
-	end
-
-	local item = GetItemInfoInstant(itemId)
-	if item and item.description and type(item.description) == "string"
-		and string.find(string.lower(item.description), "worldforged", 1, true) then
-		worldforgedCache[itemId] = true
-		return true
-	end
-
-	local tipResult = TooltipHasWorldforged(link)
-	if tipResult == nil then
-		return false -- retry on next bag update; do not cache
-	end
-	worldforgedCache[itemId] = tipResult
-	return tipResult
-end
-
 function filter:OnInitialize()
 	self.db = addon.db:RegisterNamespace('Ascension', {
 		profile = { oneSectionPerSet = true },
@@ -94,8 +32,6 @@ function filter:OnInitialize()
 end
 
 function filter:OnEnable()
-	EnsureScanTip()
-	wipe(worldforgedCache)
 	addon:UpdateFilters()
 end
 
@@ -104,6 +40,13 @@ function filter:OnDisable()
 end
 
 function filter:Filter(slotData)
+		-- Trade Goods equipment
+	if slotData.itemId == 5956 or slotData.itemId == 6219 or slotData.itemId == 20824 or slotData.itemId == 20815 or slotData.itemId == 10498 or
+		slotData.itemId == 22463 or slotData.itemId == 22462 or slotData.itemId == 22461 or slotData.itemId == 16207 or slotData.itemId == 11145 or
+		slotData.itemId == 11130 or slotData.itemId == 6339 or slotData.itemId == 6218 or slotData.itemId == 23821 or slotData.itemId == 6954 or 
+		slotData.itemId == 9149 or slotData.itemId == 2901 or slotData.itemId == 7005 then
+		return "Tools", 'Trade Goods'
+	end
 	-- Quality-6 Ascension/Vanity first so tooltip scanning cannot skip them.
 	if slotData.quality == 6 then
 		if VANITY_ITEMS and VANITY_ITEMS[slotData.itemId] and VANITY_ITEMS[slotData.itemId].itemid > 0 then
@@ -113,15 +56,14 @@ function filter:Filter(slotData)
 		end
 	end
 
-	-- Worldforged (tooltip-tagged) — before Transmog so WF gear is not miscategorized.
-	if IsWorldforged(slotData.itemId, slotData.link) then
-		return "Worldforged", "Equipment"
-	end
-
 	-- Transmog / Mythic+ equipment
 	if (slotData.class == "Weapon" or slotData.class == "Armor") then
-		local item = GetItemInfoInstant(slotData.itemId)
-		if item and item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
+		-- Worldforged (tooltip-tagged) — before Transmog so WF gear is not miscategorized.
+		if GetItemFlavorText(slotData.itemId) and string.find(GetItemFlavorText(slotData.itemId), "@Worldforged") then
+			return "Worldforged", "Equipment"
+		end		
+		local mythicLevel = tonumber(tostring(GetItemMythicLevel(slotData.itemId)):match("%d+")) or 0-- Tempfix for GetItemMythicLevel also returning the "10@" in "@Mythic 10@"
+		if mythicLevel > 0 then-- GetItemMythicLevel(slotData.itemId) and GetItemMythicLevel(slotData.itemId) > 0 then
 			return "Mythic+", 'Equipment'
 		end
 		if C_Appearance and slotData.subclass ~= "Thrown" and slotData.itemId ~= 5956 then
@@ -134,22 +76,17 @@ function filter:Filter(slotData)
 				end
 			end
 		end
+	-- Mythic+ items
 	else
-		local item = GetItemInfoInstant(slotData.itemId)
-		if item and item.description and (string.find(item.description, "@Mythic %d") or string.find(item.description, "@Mythic Level")) then
+		local mythicLevel = tonumber(tostring(GetItemMythicLevel(slotData.itemId)):match("%d+")) or 0-- Tempfix for GetItemMythicLevel also returning the "10@" in "@Mythic 10@"
+		local flavor = GetItemFlavorText(slotData.itemId)
+		if mythicLevel > 0 then-- GetItemMythicLevel(slotData.itemId) and GetItemMythicLevel(slotData.itemId) > 0 then
 			return "Mythic+", 'Equipment'
-		elseif item and item.description and item.inventoryType == 0 and (string.find(item.description, "This Token") or string.find(item.description, "This token")) then
+		elseif flavor and string.find(flavor, "This Token") then
 			return "Tier Token", 'Equipment'
-		elseif item and item.description and string.find(item.description, "@re") then
+		elseif flavor and string.find(flavor, "@re") then
 			return "Mystic Enchants"
 		end
-	end
-	-- Trade Goods equipment
-	if slotData.itemId == 5956 or slotData.itemId == 6219 or slotData.itemId == 20824 or slotData.itemId == 20815 or slotData.itemId == 10498 or
-		slotData.itemId == 22463 or slotData.itemId == 22462 or slotData.itemId == 22461 or slotData.itemId == 16207 or slotData.itemId == 11145 or
-		slotData.itemId == 11130 or slotData.itemId == 6339 or slotData.itemId == 6218 or slotData.itemId == 23821 or slotData.itemId == 6954 or 
-		slotData.itemId == 9149 or slotData.itemId == 2901 or slotData.itemId == 7005 then
-		return "Tools", 'Trade Goods'
 	end
 end
 
