@@ -537,7 +537,14 @@ function buttonProto:UpdateCount()
 	end
 end
 
-function buttonProto:UpdateLock(isolatedEvent)
+function buttonProto:UpdateLock(event, bag, slot)
+	-- Stock bags pass bag+slot. Skip other buttons so one pickup does not
+	-- GetContainerItemInfo on every visible slot. No args = paperdoll/equip lock.
+	if event == 'ITEM_LOCK_CHANGED' then
+		if not bag or not slot or bag ~= self.bag or slot ~= self.slot then
+			return
+		end
+	end
 	if addon.globalLock then
 		SetItemButtonDesaturated(self, true)
 		self:Disable()
@@ -545,7 +552,7 @@ function buttonProto:UpdateLock(isolatedEvent)
 		self:Enable()
 		SetItemButtonDesaturated(self, self:IsLocked())
 	end
-	if isolatedEvent then
+	if event then
 		addon:SendMessage('AdiBags_UpdateLock', self)
 	end
 end
@@ -737,7 +744,15 @@ function stackProto:UpdateVisibleSlot()
 	return self:SetVisibleSlot(bestUnlockedId or bestLockedId)
 end
 
-function stackProto:ITEM_LOCK_CHANGED()
+function stackProto:ITEM_LOCK_CHANGED(event, bag, slot)
+	if bag and slot then
+		local slotId = GetSlotId(bag, slot)
+		if not (self.slots and slotId and self.slots[slotId]) then
+			return
+		end
+	else
+		return
+	end
 	return self:Update()
 end
 
