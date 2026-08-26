@@ -114,6 +114,13 @@ function buttonProto:OnRelease()
 	self.isUpgrade = nil
 	self.isDowngrade = nil
 	self.beingSold = nil
+	if self.upgradeTextureTimer then
+		AceTimer:CancelTimer(self.upgradeTextureTimer, true)
+		self.upgradeTextureTimer = nil
+	end
+	if self.upgradeTexture then
+		self.upgradeTexture:Hide()
+	end
 end
 
 function buttonProto:ToString()
@@ -438,12 +445,20 @@ function buttonProto:UNIT_QUEST_LOG_CHANGED(event, unit)
 	end
 end
 
-function buttonProto:UpdateUpgradeTexture(self)
-	local upgradeTexture = self.upgradeTexture
+-- Overlay for Empress Quest Assist. Create once; callers only Show/Hide.
+function buttonProto:UpdateUpgradeTexture()
 	if self.isUpgrade then
-		upgradeTexture:Show()
-	else
-		upgradeTexture:Hide()
+		local tex = self.upgradeTexture
+		if not tex then
+			tex = self:CreateTexture(nil, "OVERLAY")
+			tex:SetTexture([[Interface\AddOns\AdiBags\assets\UpgradeArrow.tga]])
+			tex:SetPoint("TOP", self.IconTexture, "TOPLEFT", 10, -2)
+			tex:SetSize(18, 18)
+			self.upgradeTexture = tex
+		end
+		tex:Show()
+	elseif self.upgradeTexture then
+		self.upgradeTexture:Hide()
 	end
 end
 
@@ -490,32 +505,7 @@ function buttonProto:Update()
 		self.Stock:Hide()
 	end
 
-	if self.upgradeTexture then
-		self.upgradeTexture:Hide()
-		self.upgradeTexture = nil
-	end
-
-
-	-- update upgrade texture for Empress Quest Assist
-	if not self.upgradeTexture then
-		local upgradeTexture = self:CreateTexture(nil, "OVERLAY")
-		--upgradeTexture:Hide()
-		upgradeTexture:SetTexture([[Interface\AddOns\AdiBags\assets\UpgradeArrow.tga]])
-		--upgradeTexture:SetTexCoord(0, 1, 1, 0) -- Flip the texture vertically
-		upgradeTexture:SetPoint("TOP", icon, "TOPLEFT", 10, -2)
-		--upgradeTexture:SetAllPoints(icon)
-		upgradeTexture:SetSize(18, 18)
-		--upgradeTexture:SetVertexColor(0, 1, 0) -- Set the color to green
-		self.upgradeTexture = upgradeTexture
-	end
-
-	if self.isUpgrade then
-		self.upgradeTexture:Show()
-	elseif self.isDowngrade then
-		self.upgradeTexture:Hide()
-	else
-		self.upgradeTexture:Hide()
-	end
+	self:UpdateUpgradeTexture()
 
 	self:UpdateCount()
 	self:UpdateBorder()
@@ -524,7 +514,14 @@ function buttonProto:Update()
 	if self.UpdateSearch then
 		self:UpdateSearch()
 	end
-	AceTimer:ScheduleTimer(function() self:UpdateUpgradeTexture(self) end, 0.5)
+	-- Empress Quest Assist sets isUpgrade after AdiBags paints; one delayed re-check.
+	if self.upgradeTextureTimer then
+		AceTimer:CancelTimer(self.upgradeTextureTimer, true)
+	end
+	self.upgradeTextureTimer = AceTimer:ScheduleTimer(function()
+		self.upgradeTextureTimer = nil
+		self:UpdateUpgradeTexture()
+	end, 0.5)
 
 	addon:SendMessage('AdiBags_UpdateButton', self)
 end
