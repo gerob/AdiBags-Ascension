@@ -1,3 +1,9 @@
+Changelog 26 Aug 2026 3.3.5-ASCe
+- ItemButton ITEM_LOCK_CHANGED / stack buttons: only UpdateLock the matching bag+slot
+  (stock ContainerFrame pattern). Pickup no longer GetContainerItemInfo on every slot.
+- Upgrade arrow overlay: create once, Show/Hide; cancel prior 0.5s AceTimer on Update
+  and OnRelease (Pawn, Refactor addons).
+
 Changelog 25 Aug 2026 3.3.5-ASCd
 - AdiBags_Ascension filter: tool ID set, one GetItemFlavorText per item, MythicLevel helper,
   nil-safe Worldforged/token/mystic checks; removed leftover Owned global.

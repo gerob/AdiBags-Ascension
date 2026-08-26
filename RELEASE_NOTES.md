@@ -1,6 +1,13 @@
-# AdiBags Ascension 3.3.5-ASCd
+# AdiBags Ascension 3.3.5-ASCe
 
 Ascension-focused fork of AdiBags for Project Ascension (3.3.5 client).
+
+## Changes in 3.3.5-ASCe
+
+- **Item lock updates** — Picking up an item only greys that bag slot. Other visible buttons no longer run a lock check on every pickup/drop; small performance increase. 
+- **Upgrade arrow overlay** — Upgrade Assist addons (Pawn, Refactor) arrows are created once per button and then shown or hidden. Bag refreshes no longer stack leftover textures or extra 0.5s timers. This reduces frame lag.
+
+No new files. `/reload` is enough.
 
 ## Changes in 3.3.5-ASCd
 
