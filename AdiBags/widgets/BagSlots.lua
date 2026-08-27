@@ -506,19 +506,17 @@ end
 
 function keyringButtonProto:ToggleKeyringSection()
 	addon.db.char.hideKeyring = not addon.db.char.hideKeyring
-
-	-- Keep bag-sort Keyring section collapse in sync when that section exists.
-	local key = self:GetKeyringSectionKey()
-	local container = self:GetParent() and self:GetParent():GetParent()
-	local section = container and container.sections and container.sections[key]
-	local hidden = addon.db.char.hideKeyring
-	if section then
-		section:SetCollapsed(hidden)
-	else
-		addon.db.char.collapsedSections[key] = hidden
+	-- Showing empty slots: keep the Keyring section expanded so they are visible.
+	if not addon.db.char.hideKeyring then
+		local key = self:GetKeyringSectionKey()
+		local container = self:GetParent() and self:GetParent():GetParent()
+		local section = container and container.sections and container.sections[key]
+		if section then
+			section:SetCollapsed(false)
+		else
+			addon.db.char.collapsedSections[key] = false
+		end
 	end
-
-	-- Force full redispatch so keys stay hidden after leaving FilterByBag mode.
 	addon:SendMessage('AdiBags_FiltersChanged', true)
 	self:Update()
 end
@@ -585,11 +583,18 @@ end
 
 local function Panel_OnShow(self)
 	PlaySound(self.openSound)
+	-- Empty keyring slots stay hidden until the Keyring bag button is clicked.
+	if not self.isBank then
+		addon.db.char.hideKeyring = true
+	end
 	addon:SendMessage('AdiBags_FiltersChanged', true)
 end
 
 local function Panel_OnHide(self)
 	PlaySound(self.closeSound)
+	if not self.isBank then
+		addon.db.char.hideKeyring = true
+	end
 	addon:SendMessage('AdiBags_FiltersChanged', true)
 	addon:SendMessage('AdiBags_BagSwapPanelClosed', true)
 end
@@ -623,6 +628,7 @@ function addon:CreateBagSlotPanel(container, name, bags, isBank)
 
 	self.openSound = isBank and "igMainMenuOpen" or "igBackPackOpen"
 	self.closeSound = isBank and "igMainMenuClose" or "igBackPackClose"
+	self.isBank = isBank
 	self:SetScript('OnShow', Panel_OnShow)
 	self:SetScript('OnHide', Panel_OnHide)
 

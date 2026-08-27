@@ -192,7 +192,7 @@ local DEFAULT_SETTINGS = {
 		collapsedSections = {
 			['*'] = false,
 		},
-		hideKeyring = false,
+		hideKeyring = true,
 	}
 }
 
