@@ -1130,14 +1130,13 @@ function containerProto:UpdateContent(bag)
 				slotData.itemId = itemId
 				slotData.name, slotData.quality, slotData.iLevel, slotData.reqLevel, slotData.class, slotData.subclass, slotData.equipSlot, slotData.texture, slotData.vendorPrice = name, quality, iLevel, reqLevel, class, subclass, equipSlot, texture, vendorPrice
 				slotData.maxStack = maxStack or (link and 1 or 0)
-				-- Empty keyring slots stay hidden unless Equipped bags is open and Keyring was clicked.
-				if bag ~= KEYRING_CONTAINER or link or (self.BagSlotPanel:IsShown() and not addon.db.char.hideKeyring) then
+				-- While keyring is hidden, drop UI buttons but keep content data.
+				if not (addon.db.char.hideKeyring and bag == KEYRING_CONTAINER) then
 					added[slotData.slotId] = slotData
 				end
 			elseif slotData.count ~= count then
 				slotData.count = count
-				if bag == KEYRING_CONTAINER and not slotData.link
-					and not (self.BagSlotPanel:IsShown() and not addon.db.char.hideKeyring) then
+				if addon.db.char.hideKeyring and bag == KEYRING_CONTAINER then
 					removed[slotData.slotId] = slotData.link
 				else
 					changed[slotData.slotId] = slotData
@@ -1208,18 +1207,6 @@ end
 
 local MISCELLANEOUS = addon.BI['Miscellaneous']
 local FREE_SPACE = L["Free space"]
-
--- Keys always show. Empty keyring slots only while Equipped bags is open and Keyring was clicked.
-function containerProto:ShouldShowKeyringSlot(slotData)
-	if slotData.bag ~= KEYRING_CONTAINER then
-		return true
-	end
-	if slotData.link then
-		return true
-	end
-	return self.BagSlotPanel and self.BagSlotPanel:IsShown() and not addon.db.char.hideKeyring
-end
-
 function containerProto:FilterSlot(slotData)
 	if self.BagSlotPanel:IsShown() then
 		return FilterByBag(slotData)
@@ -1233,7 +1220,7 @@ end
 
 function containerProto:DispatchItem(slotData)
 	local slotId = slotData.slotId
-	if not self:ShouldShowKeyringSlot(slotData) then
+	if addon.db.char.hideKeyring and slotData.bag == KEYRING_CONTAINER then
 		self:RemoveSlot(slotId)
 		return
 	end
