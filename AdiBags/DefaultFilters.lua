@@ -12,6 +12,7 @@ function addon:SetupDefaultFilters()
 	local _G = _G
 	local BANK_CONTAINER = _G.BANK_CONTAINER
 	local BANK_CONTAINER_INVENTORY_OFFSET = _G.BANK_CONTAINER_INVENTORY_OFFSET
+	local PERSONAL_BANK_CONTAINER = addon.PERSONAL_BANK_CONTAINER
 	local EquipmentManager_UnpackLocation = _G.EquipmentManager_UnpackLocation
 	local format = _G.format
 	local GetContainerItemQuestInfo = _G.GetContainerItemQuestInfo
@@ -175,6 +176,10 @@ function addon:SetupDefaultFilters()
 		local questItemFilter = addon:RegisterFilter('Quest', 75, function(self, slotData)
 			if slotData.class == QUEST or slotData.subclass == QUEST then
 				return QUEST
+			-- GetContainerItemQuestInfo is for player/bank bags only. Personal/guild
+			-- bank uses bag -99; calling it aliases a player slot and mis-sorts items.
+			elseif slotData.isPersonalBank or slotData.bag == PERSONAL_BANK_CONTAINER then
+				return
 			else
 				local isQuestItem, questId = GetContainerItemQuestInfo(slotData.bag, slotData.slot)
 				return (questId or isQuestItem) and QUEST

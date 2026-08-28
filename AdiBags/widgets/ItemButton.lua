@@ -575,7 +575,10 @@ end
 function buttonProto:UpdateBorder(isolatedEvent)
 	if self.hasItem then
 		local texture, r, g, b, a, x1, x2, y1, y2, blendMode = nil, 1, 1, 1, 1, 0, 1, 0, 1, "BLEND"
-		local isQuestItem, questId, isActive = GetContainerItemQuestInfo(self.bag, self.slot)
+		local isQuestItem, questId, isActive
+		if self.bag ~= PERSONAL_BANK_CONTAINER then
+			isQuestItem, questId, isActive = GetContainerItemQuestInfo(self.bag, self.slot)
+		end
 		if addon.db.profile.questIndicator and (questId and not isActive) then
 			texture = TEXTURE_ITEM_QUEST_BANG
 		elseif addon.db.profile.questIndicator and (questId or isQuestItem) then
